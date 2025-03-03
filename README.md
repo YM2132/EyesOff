@@ -8,9 +8,7 @@ EyesOff is a privacy protection application that monitors your webcam for unauth
 
 - **Privacy Protection**: Alerts when unauthorized viewers are detected looking at your screen
 - **Real-time Face Detection**: Uses MediaPipe for efficient face detection with support for additional models
-- **User-Friendly Interface**: Modern GUI with intuitive controls and settings
 - **Customizable Alerts**: Configure alert appearance, position, and behavior
-- **Performance Optimized**: Low CPU usage for continuous background operation
 - **System Integration**: System tray support and startup options
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 
@@ -18,13 +16,7 @@ EyesOff is a privacy protection application that monitors your webcam for unauth
 
 ### Installation
 
-#### Option 1: Download pre-built application
-
-1. Download the latest release from [Releases](https://github.com/username/eyesoff/releases)
-2. Run the installer or extract the zip file
-3. Launch EyesOff from your applications menu or desktop shortcut
-
-#### Option 2: Run from source code
+#### Option 1: Run from source code
 
 1. Clone this repository:
    ```
@@ -89,7 +81,7 @@ eyesoff/
 
 ## Command Line Usage
 
-For advanced users or headless operation, a command-line interface is also available:
+For headless operation, a command-line interface is also available:
 
 ```bash
 python main.py [options]
