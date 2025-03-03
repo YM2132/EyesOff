@@ -1,0 +1,1 @@
+"""GUI components of the EyesOff application."""
