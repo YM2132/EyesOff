@@ -296,6 +296,11 @@ class SettingsPanel(QWidget):
         self.alert_duration_spin.setEnabled(False)  # Initially disabled
         behavior_layout.addRow("Alert Duration (s):", self.alert_duration_spin)
         
+        # Fullscreen mode
+        self.fullscreen_check = QCheckBox()
+        self.fullscreen_check.setToolTip("Display alert in fullscreen mode (covers entire screen)")
+        behavior_layout.addRow("Fullscreen Alert:", self.fullscreen_check)
+        
         # Alert sound
         self.alert_sound_check = QCheckBox()
         self.alert_sound_check.toggled.connect(self._on_alert_sound_toggled)
@@ -466,6 +471,7 @@ class SettingsPanel(QWidget):
         
         self.alert_position_combo.setCurrentText(self.config_manager.get("alert_position", "center"))
         self.animations_check.setChecked(self.config_manager.get("enable_animations", True))
+        self.fullscreen_check.setChecked(self.config_manager.get("fullscreen_mode", False))
         
         alert_duration = self.config_manager.get("alert_duration", None)
         if alert_duration is not None:
@@ -626,6 +632,7 @@ class SettingsPanel(QWidget):
         settings["alert_size"] = (self.alert_width_spin.value(), self.alert_height_spin.value())
         settings["alert_position"] = self.alert_position_combo.currentText()
         settings["enable_animations"] = self.animations_check.isChecked()
+        settings["fullscreen_mode"] = self.fullscreen_check.isChecked()
         
         if self.auto_dismiss_check.isChecked():
             settings["alert_duration"] = self.alert_duration_spin.value()

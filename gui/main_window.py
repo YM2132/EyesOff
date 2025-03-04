@@ -264,7 +264,8 @@ class MainWindow(QMainWindow):
             enable_animations=self.config_manager.get("enable_animations", True),
             alert_duration=self.config_manager.get("alert_duration", None),
             alert_sound_enabled=self.config_manager.get("alert_sound_enabled", False),
-            alert_sound_file=self.config_manager.get("alert_sound_file", "")
+            alert_sound_file=self.config_manager.get("alert_sound_file", ""),
+            fullscreen_mode=self.config_manager.get("fullscreen_mode", False)
         )
     
     def _start_monitoring(self):
@@ -426,6 +427,8 @@ class MainWindow(QMainWindow):
                     alert_settings['alert_sound_enabled'] = settings['alert_sound_enabled']
                 if 'alert_sound_file' in settings:
                     alert_settings['alert_sound_file'] = settings['alert_sound_file']
+                if 'fullscreen_mode' in settings:
+                    alert_settings['fullscreen_mode'] = settings['fullscreen_mode']
                     
                 if alert_settings:
                     self.alert_dialog.update_settings(**alert_settings)

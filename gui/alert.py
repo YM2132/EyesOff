@@ -30,7 +30,8 @@ class AlertDialog(QDialog):
                 enable_animations: bool = True,
                 alert_duration: Optional[float] = None,
                 alert_sound_enabled: bool = False,
-                alert_sound_file: str = ""):
+                alert_sound_file: str = "",
+                fullscreen_mode: bool = False):
         """
         Initialize the alert dialog.
         
@@ -58,6 +59,7 @@ class AlertDialog(QDialog):
         self.alert_duration = alert_duration
         self.alert_sound_enabled = alert_sound_enabled
         self.alert_sound_file = alert_sound_file
+        self.fullscreen_mode = fullscreen_mode
         
         # State variables
         self.dismiss_timer = None
@@ -78,14 +80,25 @@ class AlertDialog(QDialog):
         """Initialize the UI components."""
         # Set up window properties
         self.setWindowTitle("Privacy Alert")
-        self.setWindowFlags(
-            Qt.WindowStaysOnTopHint | 
-            Qt.FramelessWindowHint |
-            Qt.Tool  # Hide from taskbar
-        )
         
-        # Set window size
-        self.resize(*self.alert_size)
+        if self.fullscreen_mode:
+            # For fullscreen, set different flags
+            self.setWindowFlags(
+                Qt.WindowStaysOnTopHint | 
+                Qt.FramelessWindowHint |
+                Qt.Tool |  # Hide from taskbar
+                Qt.X11BypassWindowManagerHint  # Allows going over everything (including taskbar)
+            )
+            # Will be resized to full screen in showEvent
+        else:
+            # Standard popup flags
+            self.setWindowFlags(
+                Qt.WindowStaysOnTopHint | 
+                Qt.FramelessWindowHint |
+                Qt.Tool  # Hide from taskbar
+            )
+            # Set window size
+            self.resize(*self.alert_size)
         
         # Set background color (convert BGR to RGB for Qt)
         r, g, b = self.alert_color[2], self.alert_color[1], self.alert_color[0]
@@ -204,6 +217,14 @@ class AlertDialog(QDialog):
         """Handle dialog show event."""
         super().showEvent(event)
         
+        # If fullscreen mode, resize to cover the entire screen
+        if self.fullscreen_mode:
+            desktop = QDesktopWidget().screenGeometry()
+            self.setGeometry(desktop)
+        else:
+            # Position the window based on settings
+            self._position_window()
+        
         # Apply animations if enabled
         if self.enable_animations:
             self._fade_in()
@@ -248,7 +269,8 @@ class AlertDialog(QDialog):
                        enable_animations: Optional[bool] = None,
                        alert_duration: Optional[float] = None,
                        alert_sound_enabled: Optional[bool] = None,
-                       alert_sound_file: Optional[str] = None):
+                       alert_sound_file: Optional[str] = None,
+                       fullscreen_mode: Optional[bool] = None):
         """
         Update alert settings.
         
@@ -262,6 +284,7 @@ class AlertDialog(QDialog):
             alert_duration: Auto-dismiss duration
             alert_sound_enabled: Whether to enable sound
             alert_sound_file: Path to sound file
+            fullscreen_mode: Whether to show alert in fullscreen mode
         """
         # Update only provided settings
         if alert_text is not None:
@@ -281,12 +304,14 @@ class AlertDialog(QDialog):
             
         if alert_size is not None:
             self.alert_size = alert_size
-            self.resize(*self.alert_size)
-            self._position_window()
+            if not self.fullscreen_mode:  # Only resize if not in fullscreen
+                self.resize(*self.alert_size)
+                self._position_window()
             
         if alert_position is not None:
             self.alert_position = alert_position
-            self._position_window()
+            if not self.fullscreen_mode:  # Only reposition if not in fullscreen
+                self._position_window()
             
         if enable_animations is not None:
             self.enable_animations = enable_animations
@@ -305,3 +330,18 @@ class AlertDialog(QDialog):
                 except Exception as e:
                     print(f"Error loading sound: {e}")
                     self.sound = None
+                    
+        # If fullscreen mode changed, we need to recreate the window with new flags
+        if fullscreen_mode is not None and fullscreen_mode != self.fullscreen_mode:
+            self.fullscreen_mode = fullscreen_mode
+            # Close and reopen to apply the new window flags
+            if self.isVisible():
+                visible = True
+                self.close()
+                # Recreate UI with new settings
+                self._init_ui()
+                if visible:
+                    self.show()
+            else:
+                # Just recreate UI with new settings
+                self._init_ui()
