@@ -86,19 +86,18 @@ class AlertDialog(QDialog):
         self.sound = None
         self.tray_icon = None
         
-        # Initialize UI (only if we're using dialog mode)
-        if not self.use_native_notifications:
-            self._init_ui()
-            
-            # Set up sound if enabled
-            if self.alert_sound_enabled and SOUND_SUPPORT and self.alert_sound_file:
-                try:
-                    self.sound = QSound(self.alert_sound_file)
-                except Exception as e:
-                    print(f"Error loading sound: {e}")
+        # Always initialize UI since we're using the hybrid approach
+        self._init_ui()
         
+        # Set up sound if enabled
+        if self.alert_sound_enabled and SOUND_SUPPORT and self.alert_sound_file:
+            try:
+                self.sound = QSound(self.alert_sound_file)
+            except Exception as e:
+                print(f"Error loading sound: {e}")
+    
         # Initialize system tray icon for notifications if parent available
-        if self.use_native_notifications and parent is not None:
+        if parent is not None:
             self._init_tray_icon()
     
     def _init_ui(self):
@@ -274,7 +273,12 @@ class AlertDialog(QDialog):
             # Position the window based on settings
             self._position_window()
         
-        # Apply animations if enabled
+        # Apply animations if enabled - make sure we have an opacity effect
+        if not hasattr(self, 'opacity_effect') or self.opacity_effect is None:
+            self.opacity_effect = QGraphicsOpacityEffect(self)
+            self.opacity_effect.setOpacity(self.alert_opacity)
+            self.setGraphicsEffect(self.opacity_effect)
+            
         if self.enable_animations:
             self._fade_in()
         
@@ -357,8 +361,12 @@ class AlertDialog(QDialog):
     
     def _show_native_notification(self):
         """Show a native system notification."""
-        if not self.use_native_notifications:
-            return
+        # Always allow showing notifications in hybrid mode
+        
+        # Make sure we don't show the popup when showing a notification
+        # This prevents both popup and notification from appearing together
+        if self.isVisible():
+            self.close()
             
         # Play sound if enabled
         if self.alert_sound_enabled and SOUND_SUPPORT and self.sound:
@@ -369,9 +377,9 @@ class AlertDialog(QDialog):
             self.tray_icon.show()
             self.tray_icon.showMessage(
                 "Privacy Alert", 
-                "Someone else is looking at your screen!",
-                QSystemTrayIcon.Warning, 
-                2500  # Show for 2.5 seconds
+                "Someone is looking at your screen! Check your privacy.",
+                QSystemTrayIcon.Critical, 
+                500  # Show for 0.5 seconds
             )
         
         # For macOS, we can also try using the native notification system via applescript
@@ -379,7 +387,7 @@ class AlertDialog(QDialog):
             try:
                 # Create an AppleScript command to display a notification
                 applescript = f'''
-                display notification "Someone else is looking at your screen!" with title "Privacy Alert" sound name "Sosumi"
+                display notification "Someone is looking at your screen! Check your privacy." with title "Privacy Alert" sound name "Sosumi"
                 '''
                 subprocess.run(["osascript", "-e", applescript], check=True)
             except Exception as e:
@@ -395,10 +403,7 @@ class AlertDialog(QDialog):
     @pyqtSlot()
     def test_alert(self):
         """Show a test alert."""
-        if self.use_native_notifications:
-            self._show_native_notification()
-            return
-            
+        # For hybrid approach, always show the dialog
         # If already visible, just reset timers/animations
         if self.isVisible():
             # Reset auto-dismiss timer if active
@@ -407,6 +412,9 @@ class AlertDialog(QDialog):
                 self._setup_auto_dismiss()
         else:
             self.show()
+            
+        # Also show a notification for testing
+        self._show_native_notification()
     
     def update_settings(self, 
                        alert_text: Optional[str] = None,

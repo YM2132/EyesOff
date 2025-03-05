@@ -194,6 +194,15 @@ class SettingsPanel(QWidget):
         self.debounce_spin.setToolTip("Time in seconds to wait before changing alert state")
         threshold_layout.addRow("Debounce Time (s):", self.debounce_spin)
         
+        # Detection verification delay
+        self.detection_delay_spin = QDoubleSpinBox()
+        self.detection_delay_spin.setRange(0.0, 2.0)
+        self.detection_delay_spin.setSingleStep(0.05)
+        self.detection_delay_spin.setDecimals(2)
+        self.detection_delay_spin.setValue(0.2)
+        self.detection_delay_spin.setToolTip("Time to confirm detection before showing alert")
+        threshold_layout.addRow("Detection Delay (s):", self.detection_delay_spin)
+        
         threshold_group.setLayout(threshold_layout)
         
         # Visualization group
@@ -301,10 +310,10 @@ class SettingsPanel(QWidget):
         self.fullscreen_check.setToolTip("Display alert in fullscreen mode (covers entire screen)")
         behavior_layout.addRow("Fullscreen Alert:", self.fullscreen_check)
         
-        # Native notifications
+        # Native notifications - removing since we're using automatic hybrid approach
+        # We'll keep the setting in the config but hide it from the UI
         self.native_notifications_check = QCheckBox()
-        self.native_notifications_check.setToolTip("Use macOS native notifications instead of popup windows (better for fullscreen apps)")
-        behavior_layout.addRow("Use Native Notifications:", self.native_notifications_check)
+        self.native_notifications_check.setVisible(False)  # Hide from UI
         
         # Alert sound
         self.alert_sound_check = QCheckBox()
@@ -462,6 +471,7 @@ class SettingsPanel(QWidget):
         self.confidence_spin.setValue(self.config_manager.get("confidence_threshold", 0.5))
         self.face_threshold_spin.setValue(self.config_manager.get("face_threshold", 1))
         self.debounce_spin.setValue(self.config_manager.get("debounce_time", 1.0))
+        self.detection_delay_spin.setValue(self.config_manager.get("detection_delay", 0.2))
         self.show_detection_check.setChecked(self.config_manager.get("show_detection_visualization", True))
         self.privacy_mode_check.setChecked(self.config_manager.get("privacy_mode", False))
         
@@ -517,8 +527,9 @@ class SettingsPanel(QWidget):
             self.width_spin.setValue(frame_width)
             self.height_spin.setValue(frame_height)
         
-        # Native notifications setting
-        self.native_notifications_check.setChecked(self.config_manager.get("use_native_notifications", False))
+        # Set native notifications to true by default for the hybrid approach
+        self.native_notifications_check.setChecked(True)
+        self.config_manager.set("use_native_notifications", True)
         
         # App tab
         self.start_boot_check.setChecked(self.config_manager.get("start_on_boot", False))
@@ -630,6 +641,7 @@ class SettingsPanel(QWidget):
         settings["confidence_threshold"] = self.confidence_spin.value()
         settings["face_threshold"] = self.face_threshold_spin.value()
         settings["debounce_time"] = self.debounce_spin.value()
+        settings["detection_delay"] = self.detection_delay_spin.value()
         settings["show_detection_visualization"] = self.show_detection_check.isChecked()
         settings["privacy_mode"] = self.privacy_mode_check.isChecked()
         

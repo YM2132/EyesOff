@@ -47,6 +47,11 @@ class DetectionManagerThread(QThread):
         self.detection_manager = None
         self.logger = self._setup_logger()
         
+        # Add detection verification
+        self.consecutive_detections = 0
+        self.detection_delay_frames = 6  # About 0.2s at 30fps
+        self.last_detection_state = False
+        
         # Statistics
         self.stats = {
             "total_detections": 0,
@@ -152,21 +157,34 @@ class DetectionManagerThread(QThread):
             # Get current alert state
             was_alert_showing = self.detection_manager.is_alert_showing
             
-            # Update the detection manager state but don't let it create windows
-            if multiple_viewers_detected and not was_alert_showing:
-                self.logger.info(f"Multiple viewers detected ({face_count})! Showing privacy alert.")
-                self.detection_manager.is_alert_showing = True
-                # Send signal to GUI to show alert instead of using OpenCV
-                self.signals.show_alert.emit()
-                self.stats["alert_count"] += 1
-                self.signals.alert_state_changed.emit(True)
-                
-            elif not multiple_viewers_detected and was_alert_showing:
-                self.logger.info("No unauthorized viewers detected. Hiding alert.")
-                self.detection_manager.is_alert_showing = False
-                # Send signal to GUI to dismiss alert
-                self.signals.dismiss_alert.emit()
-                self.signals.alert_state_changed.emit(False)
+            # Update the detection manager state with verification delay
+            # We only change state if we've seen the same condition for several consecutive frames
+            if multiple_viewers_detected != self.last_detection_state:
+                # Detection state changed, reset counter
+                self.consecutive_detections = 1
+                self.last_detection_state = multiple_viewers_detected
+            else:
+                # Same detection state, increment counter
+                self.consecutive_detections += 1
+            
+            # Only trigger alerts after seeing consistent detections for the delay period
+            if self.consecutive_detections >= self.detection_delay_frames:
+                if multiple_viewers_detected and not was_alert_showing:
+                    self.logger.info(f"Multiple viewers detected ({face_count})! Showing privacy alert.")
+                    self.detection_manager.is_alert_showing = True
+                    # Send signal to GUI to show alert instead of using OpenCV
+                    # Reset consecutive detection counter to prevent rapid alerts
+                    self.consecutive_detections = 0
+                    self.signals.show_alert.emit()
+                    self.stats["alert_count"] += 1
+                    self.signals.alert_state_changed.emit(True)
+                    
+                elif not multiple_viewers_detected and was_alert_showing:
+                    self.logger.info("No unauthorized viewers detected. Hiding alert.")
+                    self.detection_manager.is_alert_showing = False
+                    # Send signal to GUI to dismiss alert
+                    self.signals.dismiss_alert.emit()
+                    self.signals.alert_state_changed.emit(False)
             
             # Emit updated statistics periodically (every 10 detections)
             if self.stats["total_detections"] % 10 == 0:
@@ -196,6 +214,12 @@ class DetectionManagerThread(QThread):
         """
         self.mutex.lock()
         self.settings.update(settings)
+        
+        # Update detection delay frames based on settings
+        if 'detection_delay' in settings:
+            # Convert time in seconds to frames (assuming 30fps)
+            delay_seconds = settings['detection_delay']
+            self.detection_delay_frames = max(1, int(delay_seconds * 30))
         
         # Update the detection manager if it exists
         if self.detection_manager:

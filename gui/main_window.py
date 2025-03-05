@@ -520,12 +520,34 @@ class MainWindow(QMainWindow):
             
     def _on_show_alert(self):
         """Handle signal to show the alert dialog."""
-        if self.alert_dialog:
-            # For native notifications, use the notification method instead of showing dialog
-            if self.config_manager.get("use_native_notifications", False):
-                self.alert_dialog._show_native_notification()
-            elif not self.alert_dialog.isVisible():
-                self.alert_dialog.show()
+        if not self.alert_dialog:
+            return
+            
+        # Get current application state
+        is_visible = self.isVisible() and not self.isMinimized()
+        is_active = self.isActiveWindow()
+        
+        # Determine if user is using another app
+        other_app_active = not is_visible or not is_active
+        
+        # If existing popup is visible, close it first to prevent duplicates
+        if self.alert_dialog.isVisible():
+            self.alert_dialog.close()
+        
+        # Completely separate the alert behaviors based on context
+        if not other_app_active:
+            # Only use popup if our app is active
+            self.alert_dialog.show()
+            
+            # Log for debugging
+            print("DEBUG: Showing popup alert on home screen")
+        else:
+            # Only use notification if another app is active
+            # Ensure popup is not shown
+            self.alert_dialog._show_native_notification()
+            
+            # Log for debugging
+            print("DEBUG: Showing notification for other app")
             
     def _on_dismiss_alert(self):
         """Handle signal to dismiss the alert dialog."""
