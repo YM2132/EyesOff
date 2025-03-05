@@ -1,10 +1,12 @@
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QLabel, QPushButton, 
-                           QGraphicsOpacityEffect, QDesktopWidget)
+                           QGraphicsOpacityEffect, QDesktopWidget, QApplication,
+                           QSystemTrayIcon)
 from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QSize, pyqtSlot
 from PyQt5.QtGui import QFont, QColor, QPalette, QIcon
 
 import time
-from typing import Tuple, Optional
+import platform
+from typing import Tuple, Optional, Callable
 
 # Try to import QtMultimedia for sound support
 try:
@@ -12,6 +14,16 @@ try:
     SOUND_SUPPORT = True
 except ImportError:
     SOUND_SUPPORT = False
+
+# Try to import notification library for macOS
+if platform.system() == 'Darwin':
+    try:
+        import subprocess
+        NATIVE_NOTIFICATION_SUPPORT = True
+    except ImportError:
+        NATIVE_NOTIFICATION_SUPPORT = False
+else:
+    NATIVE_NOTIFICATION_SUPPORT = False
 
 
 class AlertDialog(QDialog):
@@ -31,7 +43,9 @@ class AlertDialog(QDialog):
                 alert_duration: Optional[float] = None,
                 alert_sound_enabled: bool = False,
                 alert_sound_file: str = "",
-                fullscreen_mode: bool = False):
+                fullscreen_mode: bool = False,
+                use_native_notifications: bool = False,
+                on_notification_clicked: Optional[Callable] = None):
         """
         Initialize the alert dialog.
         
@@ -46,6 +60,9 @@ class AlertDialog(QDialog):
             alert_duration: Optional duration in seconds for the alert (None for manual dismiss)
             alert_sound_enabled: Whether to play a sound when the alert appears
             alert_sound_file: Path to the sound file
+            fullscreen_mode: Whether to display in fullscreen mode
+            use_native_notifications: Whether to use native OS notifications instead of dialog
+            on_notification_clicked: Callback when notification is clicked
         """
         super().__init__(parent)
         
@@ -60,43 +77,63 @@ class AlertDialog(QDialog):
         self.alert_sound_enabled = alert_sound_enabled
         self.alert_sound_file = alert_sound_file
         self.fullscreen_mode = fullscreen_mode
+        self.use_native_notifications = use_native_notifications
+        self.on_notification_clicked = on_notification_clicked
         
         # State variables
         self.dismiss_timer = None
         self.fade_animation = None
         self.sound = None
+        self.tray_icon = None
         
-        # Initialize UI
-        self._init_ui()
+        # Initialize UI (only if we're using dialog mode)
+        if not self.use_native_notifications:
+            self._init_ui()
+            
+            # Set up sound if enabled
+            if self.alert_sound_enabled and SOUND_SUPPORT and self.alert_sound_file:
+                try:
+                    self.sound = QSound(self.alert_sound_file)
+                except Exception as e:
+                    print(f"Error loading sound: {e}")
         
-        # Set up sound if enabled
-        if self.alert_sound_enabled and SOUND_SUPPORT and self.alert_sound_file:
-            try:
-                self.sound = QSound(self.alert_sound_file)
-            except Exception as e:
-                print(f"Error loading sound: {e}")
+        # Initialize system tray icon for notifications if parent available
+        if self.use_native_notifications and parent is not None:
+            self._init_tray_icon()
     
     def _init_ui(self):
         """Initialize the UI components."""
         # Set up window properties
         self.setWindowTitle("Privacy Alert")
         
+        # Use platform-specific window flags
+        is_macos = platform.system() == 'Darwin'
+        
         if self.fullscreen_mode:
             # For fullscreen, set different flags
-            self.setWindowFlags(
-                Qt.WindowStaysOnTopHint | 
-                Qt.FramelessWindowHint |
-                Qt.Tool |  # Hide from taskbar
-                Qt.X11BypassWindowManagerHint  # Allows going over everything (including taskbar)
-            )
+            flags = Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint
+            
+            if is_macos:
+                # macOS specific flags for maximum visibility across spaces
+                flags |= Qt.Tool  # Hide from dock
+                # Don't use Qt.WindowDoesNotAcceptFocus as it can cause issues with visibility
+            else:
+                # For other platforms
+                flags |= Qt.Tool | Qt.X11BypassWindowManagerHint
+                
+            self.setWindowFlags(flags)
             # Will be resized to full screen in showEvent
         else:
             # Standard popup flags
-            self.setWindowFlags(
-                Qt.WindowStaysOnTopHint | 
-                Qt.FramelessWindowHint |
-                Qt.Tool  # Hide from taskbar
-            )
+            flags = Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint
+            
+            if is_macos:
+                # macOS specific flags
+                flags |= Qt.Tool  # Hide from dock
+            else:
+                flags |= Qt.Tool
+                
+            self.setWindowFlags(flags)
             # Set window size
             self.resize(*self.alert_size)
         
@@ -151,18 +188,28 @@ class AlertDialog(QDialog):
     
     def _position_window(self):
         """Position the window based on settings."""
-        desktop = QDesktopWidget().availableGeometry()
+        # Get the geometry of the active screen
+        active_window = QApplication.activeWindow()
+        
+        if active_window:
+            # Get screen that contains the active window
+            screen_num = QApplication.desktop().screenNumber(active_window)
+            desktop = QDesktopWidget().availableGeometry(screen_num)
+        else:
+            # Fall back to primary screen if no active window
+            desktop = QDesktopWidget().availableGeometry()
+        
         window_size = self.size()
         
         if self.alert_position == "top":
-            x = (desktop.width() - window_size.width()) // 2
+            x = desktop.x() + (desktop.width() - window_size.width()) // 2
             y = desktop.top() + 50
         elif self.alert_position == "bottom":
-            x = (desktop.width() - window_size.width()) // 2
+            x = desktop.x() + (desktop.width() - window_size.width()) // 2
             y = desktop.bottom() - window_size.height() - 50
         else:  # center
-            x = (desktop.width() - window_size.width()) // 2
-            y = (desktop.height() - window_size.height()) // 2
+            x = desktop.x() + (desktop.width() - window_size.width()) // 2
+            y = desktop.y() + (desktop.height() - window_size.height()) // 2
         
         self.move(x, y)
     
@@ -219,7 +266,9 @@ class AlertDialog(QDialog):
         
         # If fullscreen mode, resize to cover the entire screen
         if self.fullscreen_mode:
-            desktop = QDesktopWidget().screenGeometry()
+            # Get the geometry of the active screen
+            screen = QApplication.desktop().screenNumber(QApplication.activeWindow())
+            desktop = QDesktopWidget().screenGeometry(screen)
             self.setGeometry(desktop)
         else:
             # Position the window based on settings
@@ -234,12 +283,58 @@ class AlertDialog(QDialog):
         
         # Play sound if enabled
         self._play_sound()
+        
+        # For macOS, set up timer to periodically raise window and keep it on the active space
+        if platform.system() == 'Darwin':
+            self.raise_()
+            self.activateWindow()
+            
+            # Create timer to periodically raise the window (important for macOS spaces)
+            if not hasattr(self, 'raise_timer') or not self.raise_timer.isActive():
+                self.raise_timer = QTimer(self)
+                self.raise_timer.timeout.connect(self._ensure_visibility)
+                self.raise_timer.start(200)  # Check every 200ms
+    
+    def _ensure_visibility(self):
+        """Ensure the alert window remains visible across spaces in macOS."""
+        # Check if application is active
+        self.raise_()
+        self.activateWindow()
+        
+        # On macOS, also reposition to active screen if needed
+        if platform.system() == 'Darwin' and QApplication.activeWindow():
+            # Get current active screen
+            screen = QApplication.desktop().screenNumber(QApplication.activeWindow())
+            current_screen_geom = QDesktopWidget().screenGeometry(screen)
+            
+            # If fullscreen mode, cover entire active screen
+            if self.fullscreen_mode:
+                if self.geometry() != current_screen_geom:
+                    self.setGeometry(current_screen_geom)
+            # Otherwise just make sure it's positioned properly on active screen
+            else:
+                window_size = self.size()
+                if self.alert_position == "top":
+                    x = current_screen_geom.x() + (current_screen_geom.width() - window_size.width()) // 2
+                    y = current_screen_geom.y() + 50
+                elif self.alert_position == "bottom":
+                    x = current_screen_geom.x() + (current_screen_geom.width() - window_size.width()) // 2
+                    y = current_screen_geom.y() + current_screen_geom.height() - window_size.height() - 50
+                else:  # center
+                    x = current_screen_geom.x() + (current_screen_geom.width() - window_size.width()) // 2
+                    y = current_screen_geom.y() + (current_screen_geom.height() - window_size.height()) // 2
+                
+                self.move(x, y)
     
     def closeEvent(self, event):
         """Handle dialog close event."""
         # Cancel dismiss timer if active
         if self.dismiss_timer and self.dismiss_timer.isActive():
             self.dismiss_timer.stop()
+        
+        # Stop the raise timer if active
+        if hasattr(self, 'raise_timer') and self.raise_timer.isActive():
+            self.raise_timer.stop()
         
         # If animations are enabled and not already fading out
         if self.enable_animations and (not self.fade_animation or not self.fade_animation.state() == QPropertyAnimation.Running):
@@ -248,9 +343,62 @@ class AlertDialog(QDialog):
         else:
             super().closeEvent(event)
     
+    def _init_tray_icon(self):
+        """Initialize system tray icon for notifications."""
+        self.tray_icon = QSystemTrayIcon(self.parent())
+        self.tray_icon.setIcon(QIcon.fromTheme("dialog-warning"))  # Use a default icon
+        
+        # Connect the activated signal to handle notification click
+        if self.on_notification_clicked:
+            self.tray_icon.activated.connect(
+                lambda reason: self.on_notification_clicked() 
+                if reason == QSystemTrayIcon.Trigger else None
+            )
+    
+    def _show_native_notification(self):
+        """Show a native system notification."""
+        if not self.use_native_notifications:
+            return
+            
+        # Play sound if enabled
+        if self.alert_sound_enabled and SOUND_SUPPORT and self.sound:
+            self.sound.play()
+            
+        # Use system tray notifications (works on most platforms)
+        if self.tray_icon:
+            self.tray_icon.show()
+            self.tray_icon.showMessage(
+                "Privacy Alert", 
+                "Someone else is looking at your screen!",
+                QSystemTrayIcon.Warning, 
+                2500  # Show for 2.5 seconds
+            )
+        
+        # For macOS, we can also try using the native notification system via applescript
+        if platform.system() == 'Darwin' and NATIVE_NOTIFICATION_SUPPORT:
+            try:
+                # Create an AppleScript command to display a notification
+                applescript = f'''
+                display notification "Someone else is looking at your screen!" with title "Privacy Alert" sound name "Sosumi"
+                '''
+                subprocess.run(["osascript", "-e", applescript], check=True)
+            except Exception as e:
+                print(f"Error showing macOS notification: {e}")
+                
+        # Set up auto-dismiss for any resources
+        if self.alert_duration is not None:
+            self.dismiss_timer = QTimer(self)
+            self.dismiss_timer.setSingleShot(True)
+            self.dismiss_timer.timeout.connect(self.close)
+            self.dismiss_timer.start(int(self.alert_duration * 1000))
+    
     @pyqtSlot()
     def test_alert(self):
         """Show a test alert."""
+        if self.use_native_notifications:
+            self._show_native_notification()
+            return
+            
         # If already visible, just reset timers/animations
         if self.isVisible():
             # Reset auto-dismiss timer if active
@@ -270,7 +418,9 @@ class AlertDialog(QDialog):
                        alert_duration: Optional[float] = None,
                        alert_sound_enabled: Optional[bool] = None,
                        alert_sound_file: Optional[str] = None,
-                       fullscreen_mode: Optional[bool] = None):
+                       fullscreen_mode: Optional[bool] = None,
+                       use_native_notifications: Optional[bool] = None,
+                       on_notification_clicked: Optional[Callable] = None):
         """
         Update alert settings.
         
@@ -285,36 +435,46 @@ class AlertDialog(QDialog):
             alert_sound_enabled: Whether to enable sound
             alert_sound_file: Path to sound file
             fullscreen_mode: Whether to show alert in fullscreen mode
+            use_native_notifications: Whether to use native OS notifications
+            on_notification_clicked: Callback when notification is clicked
         """
-        # Update only provided settings
+        # Handle notification mode change first
+        notification_mode_changed = False
+        if use_native_notifications is not None and use_native_notifications != self.use_native_notifications:
+            self.use_native_notifications = use_native_notifications
+            notification_mode_changed = True
+            
+            # If switching to native notifications, we may need to close the dialog
+            if self.use_native_notifications and self.isVisible():
+                self.close()
+                
+            # If switching from native notifications, we need to init UI
+            if not self.use_native_notifications and not hasattr(self, 'title_label'):
+                self._init_ui()
+                
+            # Initialize tray icon if needed
+            if self.use_native_notifications and not self.tray_icon and self.parent() is not None:
+                self._init_tray_icon()
+                
+        # Update callback if provided
+        if on_notification_clicked is not None:
+            self.on_notification_clicked = on_notification_clicked
+            # Update tray icon signal if it exists
+            if self.tray_icon and self.on_notification_clicked:
+                try:
+                    self.tray_icon.activated.disconnect()  # Disconnect any existing connections
+                except:
+                    pass
+                self.tray_icon.activated.connect(
+                    lambda reason: self.on_notification_clicked() 
+                    if reason == QSystemTrayIcon.Trigger else None
+                )
+        
+        # Other settings that apply to both dialog and notification modes
         if alert_text is not None:
             self.alert_text = alert_text
-            self.title_label.setText(alert_text)
-            
-        if alert_color is not None:
-            self.alert_color = alert_color
-            r, g, b = self.alert_color[2], self.alert_color[1], self.alert_color[0]
-            palette = self.palette()
-            palette.setColor(QPalette.Window, QColor(r, g, b))
-            self.setPalette(palette)
-            
-        if alert_opacity is not None:
-            self.alert_opacity = alert_opacity
-            self.opacity_effect.setOpacity(alert_opacity)
-            
-        if alert_size is not None:
-            self.alert_size = alert_size
-            if not self.fullscreen_mode:  # Only resize if not in fullscreen
-                self.resize(*self.alert_size)
-                self._position_window()
-            
-        if alert_position is not None:
-            self.alert_position = alert_position
-            if not self.fullscreen_mode:  # Only reposition if not in fullscreen
-                self._position_window()
-            
-        if enable_animations is not None:
-            self.enable_animations = enable_animations
+            if hasattr(self, 'title_label'):
+                self.title_label.setText(alert_text)
             
         if alert_duration is not None:
             self.alert_duration = alert_duration
@@ -330,18 +490,45 @@ class AlertDialog(QDialog):
                 except Exception as e:
                     print(f"Error loading sound: {e}")
                     self.sound = None
+        
+        # Settings only applicable to dialog mode
+        if not self.use_native_notifications:
+            if alert_color is not None:
+                self.alert_color = alert_color
+                r, g, b = self.alert_color[2], self.alert_color[1], self.alert_color[0]
+                palette = self.palette()
+                palette.setColor(QPalette.Window, QColor(r, g, b))
+                self.setPalette(palette)
+                
+            if alert_opacity is not None:
+                self.alert_opacity = alert_opacity
+                self.opacity_effect.setOpacity(alert_opacity)
+                
+            if alert_size is not None:
+                self.alert_size = alert_size
+                if not self.fullscreen_mode:  # Only resize if not in fullscreen
+                    self.resize(*self.alert_size)
+                    self._position_window()
+                
+            if alert_position is not None:
+                self.alert_position = alert_position
+                if not self.fullscreen_mode:  # Only reposition if not in fullscreen
+                    self._position_window()
+                
+            if enable_animations is not None:
+                self.enable_animations = enable_animations
                     
-        # If fullscreen mode changed, we need to recreate the window with new flags
-        if fullscreen_mode is not None and fullscreen_mode != self.fullscreen_mode:
-            self.fullscreen_mode = fullscreen_mode
-            # Close and reopen to apply the new window flags
-            if self.isVisible():
-                visible = True
-                self.close()
-                # Recreate UI with new settings
-                self._init_ui()
-                if visible:
-                    self.show()
-            else:
-                # Just recreate UI with new settings
-                self._init_ui()
+            # If fullscreen mode changed, we need to recreate the window with new flags
+            if fullscreen_mode is not None and fullscreen_mode != self.fullscreen_mode:
+                self.fullscreen_mode = fullscreen_mode
+                # Close and reopen to apply the new window flags
+                if self.isVisible():
+                    visible = True
+                    self.close()
+                    # Recreate UI with new settings
+                    self._init_ui()
+                    if visible:
+                        self.show()
+                else:
+                    # Just recreate UI with new settings
+                    self._init_ui()

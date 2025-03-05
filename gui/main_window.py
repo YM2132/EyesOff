@@ -265,7 +265,9 @@ class MainWindow(QMainWindow):
             alert_duration=self.config_manager.get("alert_duration", None),
             alert_sound_enabled=self.config_manager.get("alert_sound_enabled", False),
             alert_sound_file=self.config_manager.get("alert_sound_file", ""),
-            fullscreen_mode=self.config_manager.get("fullscreen_mode", False)
+            fullscreen_mode=self.config_manager.get("fullscreen_mode", False),
+            use_native_notifications=self.config_manager.get("use_native_notifications", False),
+            on_notification_clicked=self.show
         )
     
     def _start_monitoring(self):
@@ -429,6 +431,8 @@ class MainWindow(QMainWindow):
                     alert_settings['alert_sound_file'] = settings['alert_sound_file']
                 if 'fullscreen_mode' in settings:
                     alert_settings['fullscreen_mode'] = settings['fullscreen_mode']
+                if 'use_native_notifications' in settings:
+                    alert_settings['use_native_notifications'] = settings['use_native_notifications']
                     
                 if alert_settings:
                     self.alert_dialog.update_settings(**alert_settings)
@@ -516,8 +520,12 @@ class MainWindow(QMainWindow):
             
     def _on_show_alert(self):
         """Handle signal to show the alert dialog."""
-        if self.alert_dialog and not self.alert_dialog.isVisible():
-            self.alert_dialog.show()
+        if self.alert_dialog:
+            # For native notifications, use the notification method instead of showing dialog
+            if self.config_manager.get("use_native_notifications", False):
+                self.alert_dialog._show_native_notification()
+            elif not self.alert_dialog.isVisible():
+                self.alert_dialog.show()
             
     def _on_dismiss_alert(self):
         """Handle signal to dismiss the alert dialog."""

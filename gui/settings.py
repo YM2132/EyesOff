@@ -301,6 +301,11 @@ class SettingsPanel(QWidget):
         self.fullscreen_check.setToolTip("Display alert in fullscreen mode (covers entire screen)")
         behavior_layout.addRow("Fullscreen Alert:", self.fullscreen_check)
         
+        # Native notifications
+        self.native_notifications_check = QCheckBox()
+        self.native_notifications_check.setToolTip("Use macOS native notifications instead of popup windows (better for fullscreen apps)")
+        behavior_layout.addRow("Use Native Notifications:", self.native_notifications_check)
+        
         # Alert sound
         self.alert_sound_check = QCheckBox()
         self.alert_sound_check.toggled.connect(self._on_alert_sound_toggled)
@@ -512,6 +517,9 @@ class SettingsPanel(QWidget):
             self.width_spin.setValue(frame_width)
             self.height_spin.setValue(frame_height)
         
+        # Native notifications setting
+        self.native_notifications_check.setChecked(self.config_manager.get("use_native_notifications", False))
+        
         # App tab
         self.start_boot_check.setChecked(self.config_manager.get("start_on_boot", False))
         self.start_minimized_check.setChecked(self.config_manager.get("start_minimized", False))
@@ -633,6 +641,7 @@ class SettingsPanel(QWidget):
         settings["alert_position"] = self.alert_position_combo.currentText()
         settings["enable_animations"] = self.animations_check.isChecked()
         settings["fullscreen_mode"] = self.fullscreen_check.isChecked()
+        settings["use_native_notifications"] = self.native_notifications_check.isChecked()
         
         if self.auto_dismiss_check.isChecked():
             settings["alert_duration"] = self.alert_duration_spin.value()
