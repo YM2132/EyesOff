@@ -528,7 +528,10 @@ class AlertDialog(QDialog):
                     
             # If fullscreen mode changed, we need to recreate the window with new flags
             if fullscreen_mode is not None and fullscreen_mode != self.fullscreen_mode:
+                # Update the state variable FIRST before recreating UI
                 self.fullscreen_mode = fullscreen_mode
+                print(f"DEBUG: Updating fullscreen mode to {self.fullscreen_mode}")
+                
                 # Close and reopen to apply the new window flags
                 if self.isVisible():
                     visible = True

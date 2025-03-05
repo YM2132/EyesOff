@@ -534,13 +534,22 @@ class MainWindow(QMainWindow):
         if self.alert_dialog.isVisible():
             self.alert_dialog.close()
         
+        # Check fullscreen setting
+        fullscreen_setting = self.config_manager.get("fullscreen_mode", False)
+        
         # Completely separate the alert behaviors based on context
         if not other_app_active:
             # Only use popup if our app is active
+            # Make sure to use correct fullscreen setting
+            if self.alert_dialog.fullscreen_mode != fullscreen_setting:
+                # Close and recreate alert dialog with new setting
+                self.alert_dialog.close()
+                self._create_alert_dialog()
+                
             self.alert_dialog.show()
             
             # Log for debugging
-            print("DEBUG: Showing popup alert on home screen")
+            print(f"DEBUG: Showing {'fullscreen' if self.alert_dialog.fullscreen_mode else 'regular'} popup alert on home screen")
         else:
             # Only use notification if another app is active
             # Ensure popup is not shown
