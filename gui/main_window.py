@@ -65,6 +65,7 @@ class MainWindow(QMainWindow):
         """Initialize the UI components."""
         # Set window properties
         self.setWindowTitle("EyesOff Privacy Monitor")
+        # Should we make the size dynamic?
         self.setMinimumSize(1000, 600)
         
         # Create central widget
@@ -522,13 +523,18 @@ class MainWindow(QMainWindow):
         """Handle signal to show the alert dialog."""
         if not self.alert_dialog:
             return
-            
         # Get current application state
+        print(f'self.isVisible(): {self.isVisible()} self.isMinimized(): {self.isMinimized()}')
         is_visible = self.isVisible() and not self.isMinimized()
-        is_active = self.isActiveWindow()
-        
+
+        # Better way to check if application is active
+        app = QApplication.instance()
+        is_active = app.activeWindow() is not None or self.isActiveWindow()
+        print(f'is_active: {is_active}')
+
         # Determine if user is using another app
         other_app_active = not is_visible or not is_active
+        print(f'other_app_active: {other_app_active}')
         
         # If existing popup is visible, close it first to prevent duplicates
         if self.alert_dialog.isVisible():
@@ -550,6 +556,7 @@ class MainWindow(QMainWindow):
             
             # Log for debugging
             print(f"DEBUG: Showing {'fullscreen' if self.alert_dialog.fullscreen_mode else 'regular'} popup alert on home screen")
+            print('---'*25)
         else:
             # Only use notification if another app is active
             # Ensure popup is not shown
@@ -557,6 +564,7 @@ class MainWindow(QMainWindow):
             
             # Log for debugging
             print("DEBUG: Showing notification for other app")
+            print('---' * 25)
             
     def _on_dismiss_alert(self):
         """Handle signal to dismiss the alert dialog."""
