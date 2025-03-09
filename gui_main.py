@@ -34,7 +34,7 @@ def main():
     app.setApplicationName("EyesOff")
     app.setApplicationDisplayName("EyesOff Privacy Monitor")
     app.setOrganizationName("EyesOffApp")
-    app.setOrganizationDomain("eyesoffapp.com")
+    app.setOrganizationDomain("eyesoff.com")
     
     # Disable the ? button in dialogs on Windows
     app.setAttribute(Qt.AA_DisableWindowContextHelpButton)
