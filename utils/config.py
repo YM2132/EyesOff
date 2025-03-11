@@ -39,8 +39,8 @@ class ConfigManager:
         return {
             # Detector settings
             "detector_type": "mediapipe",
-            "model_path": "/Users/moose/Documents/PyCharm_Projects/EyesOff3/testing/mediapipe_testing/blaze_face_short_range.tflite",
-            "confidence_threshold": 0.5,
+            "model_path": "./models/blaze_face_short_range.tflite",
+            "confidence_threshold": 0.75,
             "face_threshold": 1,
             
             # Camera settings

@@ -158,7 +158,7 @@ class SettingsPanel(QWidget):
         
         # Model type combo box
         self.model_type_combo = QComboBox()
-        self.model_type_combo.addItems(["mediapipe"])  # Removed moondream as it's not fully developed yet
+        self.model_type_combo.addItems(["mediapipe", "yunet"])  # Removed moondream as it's not fully developed yet
         self.model_type_combo.currentTextChanged.connect(self._on_model_type_changed)
         model_layout.addRow("Model Type:", self.model_type_combo)
         

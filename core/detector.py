@@ -5,7 +5,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 
 # Import the existing detector implementations
 from mediapipe_detector import MediapipeDetector
-from moondream_detector import MoondreamDetector
+from yunet_detector import YuNetDetector
 
 
 class FaceDetectorSignals(QObject):
@@ -44,13 +44,16 @@ class FaceDetector:
         try:
             if self.detector_type.lower() == 'mediapipe':
                 self.detector = MediapipeDetector(self.model_path, self.confidence_threshold)
-            elif self.detector_type.lower() == 'moondream':
-                self.detector = MoondreamDetector(self.model_path, self.confidence_threshold)
+            elif self.detector_type.lower() == 'yunet':
+                self.detector = YuNetDetector(self.model_path, self.confidence_threshold)
             else:
                 raise ValueError(f"Unsupported detector type: {self.detector_type}")
         except Exception as e:
             self.signals.error_occurred.emit(f"Error creating detector: {e}")
-    
+
+
+    # I dont think this class is ever used?
+    # TODO: Delete this class
     def detect(self, frame: np.ndarray) -> Tuple[int, List[Tuple[int, int, int, int]], np.ndarray]:
         """
         Detect faces in the given frame.
@@ -127,7 +130,10 @@ class FaceDetector:
         # For now, we'll return only the implemented models
         return {
             "mediapipe": [
-                "/Users/moose/Documents/PyCharm_Projects/EyesOff3/testing/mediapipe_testing/blaze_face_short_range.tflite"
+                "/Users/moose/Documents/PyCharm_Projects/EyesOff3/models/blaze_face_short_range.tflite",
+            ],
+            "yunet": [
+                "/Users/moose/Documents/PyCharm_Projects/EyesOff3/models/face_detection_yunet_2023mar.onnx"
             ]
             # Additional detector types can be added here in the future
             # Example:
