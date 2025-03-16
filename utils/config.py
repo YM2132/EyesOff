@@ -49,6 +49,7 @@ class ConfigManager:
             "frame_height": 480,
             
             # Alert settings
+            "alert_on": False,  # alert is deactivated by default
             "alert_duration": None,  # None for manual dismiss
             "alert_color": (0, 0, 255),  # BGR Red
             "alert_opacity": 0.8,

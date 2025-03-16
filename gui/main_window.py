@@ -518,53 +518,60 @@ class MainWindow(QMainWindow):
             self.statusBar.showMessage("Privacy mode enabled", 3000)
         else:
             self.statusBar.showMessage("Privacy mode disabled", 3000)
-            
+
     def _on_show_alert(self):
         """Handle signal to show the alert dialog."""
-        if not self.alert_dialog:
-            return
-        # Get current application state
-        print(f'self.isVisible(): {self.isVisible()} self.isMinimized(): {self.isMinimized()}')
-        is_visible = self.isVisible() and not self.isMinimized()
-
-        # Better way to check if application is active
-        app = QApplication.instance()
-        is_active = app.activeWindow() is not None or self.isActiveWindow()
-        print(f'is_active: {is_active}')
-
-        # Determine if user is using another app
-        other_app_active = not is_visible or not is_active
-        print(f'other_app_active: {other_app_active}')
-        
-        # If existing popup is visible, close it first to prevent duplicates
-        if self.alert_dialog.isVisible():
-            self.alert_dialog.close()
-        
-        # Check fullscreen setting
-        fullscreen_setting = self.config_manager.get("fullscreen_mode", False)
-        
-        # Completely separate the alert behaviors based on context
-        if not other_app_active:
-            # Only use popup if our app is active
-            # Make sure to use correct fullscreen setting
-            if self.alert_dialog.fullscreen_mode != fullscreen_setting:
-                # Close and recreate alert dialog with new setting
-                self.alert_dialog.close()
-                self._create_alert_dialog()
-                
-            self.alert_dialog.show()
-            
-            # Log for debugging
-            print(f"DEBUG: Showing {'fullscreen' if self.alert_dialog.fullscreen_mode else 'regular'} popup alert on home screen")
-            print('---'*25)
-        else:
-            # Only use notification if another app is active
-            # Ensure popup is not shown
+        # Currently this code only shows alert if the EyesOff App is on top.
+        alert_on = self.config_manager.get("alert_on")
+        print(f"IS ALERT ON: {alert_on}")
+        if not alert_on:
+            # If alert is not toggled then we simply show native notification
             self.alert_dialog._show_native_notification()
-            
-            # Log for debugging
-            print("DEBUG: Showing notification for other app")
-            print('---' * 25)
+        else:
+            if not self.alert_dialog:
+                return
+            # Get current application state
+            print(f'self.isVisible(): {self.isVisible()} self.isMinimized(): {self.isMinimized()}')
+            is_visible = self.isVisible() and not self.isMinimized()
+
+            # Better way to check if application is active
+            app = QApplication.instance()
+            is_active = app.activeWindow() is not None or self.isActiveWindow()
+            print(f'is_active: {is_active}')
+
+            # Determine if user is using another app
+            other_app_active = not is_visible or not is_active
+            print(f'other_app_active: {other_app_active}')
+
+            # If existing popup is visible, close it first to prevent duplicates
+            if self.alert_dialog.isVisible():
+                self.alert_dialog.close()
+
+            # Check fullscreen setting
+            fullscreen_setting = self.config_manager.get("fullscreen_mode", False)
+
+            # Completely separate the alert behaviors based on context
+            if not other_app_active:
+                # Only use popup if our app is active
+                # Make sure to use correct fullscreen setting
+                if self.alert_dialog.fullscreen_mode != fullscreen_setting:
+                    # Close and recreate alert dialog with new setting
+                    self.alert_dialog.close()
+                    self._create_alert_dialog()
+
+                self.alert_dialog.show()
+
+                # Log for debugging
+                print(f"DEBUG: Showing {'fullscreen' if self.alert_dialog.fullscreen_mode else 'regular'} popup alert on home screen")
+                print('---'*25)
+            else:
+                # Only use notification if another app is active
+                # Ensure popup is not shown
+                self.alert_dialog._show_native_notification()
+
+                # Log for debugging
+                print("DEBUG: Showing notification for other app")
+                print('---' * 25)
             
     def _on_dismiss_alert(self):
         """Handle signal to dismiss the alert dialog."""

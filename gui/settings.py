@@ -242,26 +242,38 @@ class SettingsPanel(QWidget):
         """
         tab = QWidget()
         layout = QVBoxLayout()
+
+        self.alert_on_group = QGroupBox("Activate Alert")
+        self.alert_on_layout = QFormLayout()
+
+        # Alert or Notification only
+        self.alert_on_check = QCheckBox()
+        self.alert_on_check.toggled.connect(self._on_alert_toggle_clicked)
+        self.alert_on_check.setToolTip("When checked, shows alert dialogs. When unchecked, shows only push notifications.")
+        self.alert_on_layout.addRow("Alert Toggle:", self.alert_on_check)
+
+        self.alert_on_group.setLayout(self.alert_on_layout)
         
         # Appearance group
-        appearance_group = QGroupBox("Alert Appearance")
-        appearance_layout = QFormLayout()
+        self.appearance_group = QGroupBox("Alert Appearance")
+        self.appearance_layout = QFormLayout()
+        self.appearance_group.setEnabled(False)
         
         # Alert text
         self.alert_text_edit = QLineEdit()
-        appearance_layout.addRow("Alert Text:", self.alert_text_edit)
+        self.appearance_layout.addRow("Alert Text:", self.alert_text_edit)
         
         # Alert color
         self.alert_color_button = ColorButton()
         self.alert_color_button.color_changed.connect(self._on_alert_color_changed)
-        appearance_layout.addRow("Alert Color:", self.alert_color_button)
+        self.appearance_layout.addRow("Alert Color:", self.alert_color_button)
         
         # Alert opacity
         self.alert_opacity_slider = QSlider(Qt.Horizontal)
         self.alert_opacity_slider.setRange(10, 100)
         self.alert_opacity_slider.setTickPosition(QSlider.TicksBelow)
         self.alert_opacity_slider.setTickInterval(10)
-        appearance_layout.addRow("Opacity:", self.alert_opacity_slider)
+        self.appearance_layout.addRow("Opacity:", self.alert_opacity_slider)
         
         # Alert size
         size_layout = QHBoxLayout()
@@ -278,27 +290,28 @@ class SettingsPanel(QWidget):
         size_layout.addWidget(QLabel("Height:"))
         size_layout.addWidget(self.alert_height_spin)
         
-        appearance_layout.addRow("Alert Size:", size_layout)
+        self.appearance_layout.addRow("Alert Size:", size_layout)
         
         # Alert position
         self.alert_position_combo = QComboBox()
         self.alert_position_combo.addItems(["center", "top", "bottom"])
-        appearance_layout.addRow("Alert Position:", self.alert_position_combo)
+        self.appearance_layout.addRow("Alert Position:", self.alert_position_combo)
         
-        appearance_group.setLayout(appearance_layout)
+        self.appearance_group.setLayout(self.appearance_layout)
         
         # Behavior group
-        behavior_group = QGroupBox("Alert Behavior")
-        behavior_layout = QFormLayout()
+        self.behavior_group = QGroupBox("Alert Behavior")
+        self.behavior_layout = QFormLayout()
+        self.behavior_group.setEnabled(False)
         
         # Enable animations
         self.animations_check = QCheckBox()
-        behavior_layout.addRow("Enable Animations:", self.animations_check)
+        self.behavior_layout.addRow("Enable Animations:", self.animations_check)
         
         # Auto-dismiss
         self.auto_dismiss_check = QCheckBox()
         self.auto_dismiss_check.toggled.connect(self._on_auto_dismiss_toggled)
-        behavior_layout.addRow("Auto-dismiss Alert:", self.auto_dismiss_check)
+        self.behavior_layout.addRow("Auto-dismiss Alert:", self.auto_dismiss_check)
         
         # Alert duration
         self.alert_duration_spin = QDoubleSpinBox()
@@ -306,12 +319,12 @@ class SettingsPanel(QWidget):
         self.alert_duration_spin.setSingleStep(0.5)
         self.alert_duration_spin.setDecimals(1)
         self.alert_duration_spin.setEnabled(False)  # Initially disabled
-        behavior_layout.addRow("Alert Duration (s):", self.alert_duration_spin)
+        self.behavior_layout.addRow("Alert Duration (s):", self.alert_duration_spin)
         
         # Fullscreen mode
         self.fullscreen_check = QCheckBox()
         self.fullscreen_check.setToolTip("Display alert in fullscreen mode (covers entire screen)")
-        behavior_layout.addRow("Fullscreen Alert:", self.fullscreen_check)
+        self.behavior_layout.addRow("Fullscreen Alert:", self.fullscreen_check)
         
         # Native notifications - removing since we're using automatic hybrid approach
         # We'll keep the setting in the config but hide it from the UI
@@ -321,7 +334,7 @@ class SettingsPanel(QWidget):
         # Alert sound
         self.alert_sound_check = QCheckBox()
         self.alert_sound_check.toggled.connect(self._on_alert_sound_toggled)
-        behavior_layout.addRow("Play Alert Sound:", self.alert_sound_check)
+        self.behavior_layout.addRow("Play Alert Sound:", self.alert_sound_check)
         
         # Sound file selection
         sound_layout = QHBoxLayout()
@@ -335,13 +348,14 @@ class SettingsPanel(QWidget):
         sound_layout.addWidget(self.alert_sound_edit)
         sound_layout.addWidget(self.sound_browse_button)
         
-        behavior_layout.addRow("Sound File:", sound_layout)
+        self.behavior_layout.addRow("Sound File:", sound_layout)
         
-        behavior_group.setLayout(behavior_layout)
+        self.behavior_group.setLayout(self.behavior_layout)
         
         # Add all groups to tab layout
-        layout.addWidget(appearance_group)
-        layout.addWidget(behavior_group)
+        layout.addWidget(self.alert_on_group)
+        layout.addWidget(self.appearance_group)
+        layout.addWidget(self.behavior_group)
         layout.addStretch(1)
         
         tab.setLayout(layout)
@@ -633,6 +647,11 @@ class SettingsPanel(QWidget):
         """Handle test alert button click."""
         # Emit signal to request test alert
         self.test_alert_requested.emit()
+
+    def _on_alert_toggle_clicked(self, checked: bool):
+        """Activate alert settings if we toggle the alert on"""
+        self.appearance_group.setEnabled(checked)
+        self.behavior_group.setEnabled(checked)
     
     def _on_apply_clicked(self):
         """Handle apply button click."""
@@ -650,6 +669,7 @@ class SettingsPanel(QWidget):
         settings["privacy_mode"] = self.privacy_mode_check.isChecked()
         
         # Alert tab
+        settings["alert_on"] = self.alert_on_check.isChecked()
         settings["alert_text"] = self.alert_text_edit.text()
         settings["alert_color"] = self.alert_color_button.bgr_color
         settings["alert_opacity"] = self.alert_opacity_slider.value() / 100.0
