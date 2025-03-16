@@ -3,4 +3,4 @@ testing/mediapipe_testing/blaze_face_short_range.tflite
 /.idea
 /yolo_testing
 todos.txt
-
+/dev_logs
