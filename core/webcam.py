@@ -86,22 +86,6 @@ class WebcamManager(QObject):
         
         return True, frame
     
-    def get_device_list(self) -> list:
-        """
-        Get a list of available camera devices.
-        
-        Returns:
-            list: List of available camera device IDs
-        """
-        available_cameras = []
-        # Check the first 10 camera indices
-        for i in range(10):
-            cap = cv2.VideoCapture(i)
-            if cap.isOpened():
-                available_cameras.append(i)
-                cap.release()
-        return available_cameras
-    
     def set_camera(self, camera_id: int) -> bool:
         """
         Change the active camera.
@@ -145,3 +129,20 @@ class WebcamManager(QObject):
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
             return True
         return False
+
+    @staticmethod
+    def get_device_list() -> list:
+        """
+        Get a list of available camera devices.
+
+        Returns:
+            list: List of available camera device IDs
+        """
+        available_cameras = []
+        # Check the first 10 camera indices
+        for i in range(10):
+            cap = cv2.VideoCapture(i)
+            if cap.isOpened():
+                available_cameras.append(i)
+                cap.release()
+        return available_cameras

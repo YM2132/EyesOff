@@ -6,8 +6,10 @@ from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QSettings
 from PyQt5.QtGui import QColor
 
 from typing import Dict, Any, List, Tuple
+import os
 
 from core.detector import FaceDetector
+from core.webcam import WebcamManager
 from utils.config import ConfigManager
 
 
@@ -99,6 +101,7 @@ class SettingsPanel(QWidget):
         super().__init__(parent)
         self.config_manager = config_manager
         self.available_models = FaceDetector.get_available_models()
+        self.available_cameras = WebcamManager.get_device_list()
         
         # Initialize UI
         self._init_ui()
@@ -165,7 +168,7 @@ class SettingsPanel(QWidget):
         # Model selection combo box
         self.model_path_combo = QComboBox()
         # Will be populated in _on_model_type_changed
-        model_layout.addRow("Model:", self.model_path_combo)
+        #model_layout.addRow("Model:", self.model_path_combo)
         
         # Confidence threshold
         self.confidence_spin = QDoubleSpinBox()
@@ -360,8 +363,9 @@ class SettingsPanel(QWidget):
         
         # Camera device combo box
         self.camera_combo = QComboBox()
-        # Placeholder - in a real app you'd enumerate cameras
-        self.camera_combo.addItems(["Camera 0", "Camera 1", "Camera 2"])
+        # Get available cameras
+        for cam_idx in self.available_cameras:
+            self.camera_combo.addItems([f"Camera {cam_idx}"])
         camera_layout.addRow("Camera Device:", self.camera_combo)
         
         camera_group.setLayout(camera_layout)
