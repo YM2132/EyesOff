@@ -99,89 +99,86 @@ class AlertDialog(QDialog):
         # Initialize system tray icon for notifications if parent available
         if parent is not None:
             self._init_tray_icon()
-    
+
     def _init_ui(self):
         """Initialize the UI components."""
         # Set up window properties
         self.setWindowTitle("Privacy Alert")
-        
+
         # Use platform-specific window flags
         is_macos = platform.system() == 'Darwin'
-        
+
         if self.fullscreen_mode:
-            # For fullscreen, set different flags
-            flags = Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint
-            
+            # For fullscreen, use more aggressive flags
+            flags = Qt.Window | Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint
+
             if is_macos:
                 # macOS specific flags for maximum visibility across spaces
                 flags |= Qt.Tool  # Hide from dock
-                # Don't use Qt.WindowDoesNotAcceptFocus as it can cause issues with visibility
             else:
                 # For other platforms
                 flags |= Qt.Tool | Qt.X11BypassWindowManagerHint
-                
+
             self.setWindowFlags(flags)
             # Will be resized to full screen in showEvent
         else:
             # Standard popup flags
             flags = Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint
-            
+
             if is_macos:
                 # macOS specific flags
                 flags |= Qt.Tool  # Hide from dock
             else:
                 flags |= Qt.Tool
-                
+
             self.setWindowFlags(flags)
             # Set window size
             self.resize(*self.alert_size)
-        
+
         # Set background color (convert BGR to RGB for Qt)
         r, g, b = self.alert_color[2], self.alert_color[1], self.alert_color[0]
         palette = self.palette()
         palette.setColor(QPalette.Window, QColor(r, g, b))
         self.setPalette(palette)
         self.setAutoFillBackground(True)
-        
+
         # Set up layout
         layout = QVBoxLayout()
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
-        
-        # Add alert icon (placeholder - would use an actual icon in a real app)
-        # icon_label = QLabel()
-        # icon_label.setPixmap(QIcon.fromTheme("dialog-warning").pixmap(64, 64))
-        # icon_label.setAlignment(Qt.AlignCenter)
-        # layout.addWidget(icon_label)
-        
+
         # Add main alert text
         self.title_label = QLabel(self.alert_text)
-        self.title_label.setFont(QFont("Arial", 24, QFont.Bold))
+        self.title_label.setFont(QFont("Arial", 36, QFont.Bold))  # Increased font size
         self.title_label.setStyleSheet("color: white;")
         self.title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.title_label)
-        
+
         # Add description text
         desc_label = QLabel("Someone else is looking at your screen!")
-        desc_label.setFont(QFont("Arial", 12))
+        desc_label.setFont(QFont("Arial", 24))  # Increased font size
         desc_label.setStyleSheet("color: white;")
         desc_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(desc_label)
-        
+
         # Add dismiss button
         self.dismiss_button = QPushButton("Dismiss")
-        self.dismiss_button.setFont(QFont("Arial", 10))
+        self.dismiss_button.setFont(QFont("Arial", 18))  # Increased font size
         self.dismiss_button.clicked.connect(self.close)
+        # Make the button more prominent
+        self.dismiss_button.setMinimumSize(150, 50)
+        self.dismiss_button.setStyleSheet(
+            "background-color: rgba(255, 255, 255, 0.8); color: black; border-radius: 10px;")
         layout.addWidget(self.dismiss_button, 0, Qt.AlignCenter)
-        
+
         # Set layout
         self.setLayout(layout)
-        
+
         # Apply opacity effect
         self.opacity_effect = QGraphicsOpacityEffect(self)
         self.opacity_effect.setOpacity(self.alert_opacity)
         self.setGraphicsEffect(self.opacity_effect)
-        
+
         # Position the window
         self._position_window()
     
@@ -258,59 +255,68 @@ class AlertDialog(QDialog):
             self._fade_out()
         else:
             self.close()
-    
+
     def showEvent(self, event):
         """Handle dialog show event."""
         super().showEvent(event)
-        
+
         # If fullscreen mode, resize to cover the entire screen
         if self.fullscreen_mode:
             # Get the geometry of the active screen
-            screen = QApplication.desktop().screenNumber(QApplication.activeWindow())
-            desktop = QDesktopWidget().screenGeometry(screen)
-            self.setGeometry(desktop)
+            desktop = QDesktopWidget()
+            screen = desktop.screenNumber(QApplication.activeWindow() or self)
+            screen_geom = desktop.screenGeometry(screen)
+
+            # Cover the entire screen
+            self.setGeometry(screen_geom)
+
+            # Force window to be active but not minimized
+            self.setWindowState((self.windowState() & ~Qt.WindowMinimized) | Qt.WindowActive)
         else:
             # Position the window based on settings
             self._position_window()
-        
+
         # Apply animations if enabled - make sure we have an opacity effect
         if not hasattr(self, 'opacity_effect') or self.opacity_effect is None:
             self.opacity_effect = QGraphicsOpacityEffect(self)
             self.opacity_effect.setOpacity(self.alert_opacity)
             self.setGraphicsEffect(self.opacity_effect)
-            
+
         if self.enable_animations:
             self._fade_in()
-        
+
         # Set up auto-dismiss if specified
         self._setup_auto_dismiss()
-        
+
         # Play sound if enabled
         self._play_sound()
-        
-        # For macOS, set up timer to periodically raise window and keep it on the active space
-        if platform.system() == 'Darwin':
-            self.raise_()
-            self.activateWindow()
-            
-            # Create timer to periodically raise the window (important for macOS spaces)
-            if not hasattr(self, 'raise_timer') or not self.raise_timer.isActive():
-                self.raise_timer = QTimer(self)
-                self.raise_timer.timeout.connect(self._ensure_visibility)
-                self.raise_timer.start(200)  # Check every 200ms
-    
-    def _ensure_visibility(self):
-        """Ensure the alert window remains visible across spaces in macOS."""
-        # Check if application is active
+
+        # Set up timer to periodically raise window and keep it on the active space
+        # Do this for all platforms, not just macOS
         self.raise_()
         self.activateWindow()
-        
+
+        # Create timer to periodically raise the window (important for keeping on top)
+        if not hasattr(self, 'raise_timer') or not self.raise_timer.isActive():
+            self.raise_timer = QTimer(self)
+            self.raise_timer.timeout.connect(self._ensure_visibility)
+            self.raise_timer.start(100)  # Check more frequently (every 100ms)
+
+    def _ensure_visibility(self):
+        """Ensure the alert window remains visible across spaces in macOS."""
+        # More aggressively raise the window and activate it
+        self.raise_()
+        self.activateWindow()
+
+        # Force window to be active but not minimized
+        self.setWindowState((self.windowState() & ~Qt.WindowMinimized) | Qt.WindowActive)
+
         # On macOS, also reposition to active screen if needed
         if platform.system() == 'Darwin' and QApplication.activeWindow():
             # Get current active screen
             screen = QApplication.desktop().screenNumber(QApplication.activeWindow())
             current_screen_geom = QDesktopWidget().screenGeometry(screen)
-            
+
             # If fullscreen mode, cover entire active screen
             if self.fullscreen_mode:
                 if self.geometry() != current_screen_geom:
@@ -327,7 +333,7 @@ class AlertDialog(QDialog):
                 else:  # center
                     x = current_screen_geom.x() + (current_screen_geom.width() - window_size.width()) // 2
                     y = current_screen_geom.y() + (current_screen_geom.height() - window_size.height()) // 2
-                
+
                 self.move(x, y)
     
     def closeEvent(self, event):
