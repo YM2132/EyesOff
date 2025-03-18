@@ -65,6 +65,10 @@ class MainWindow(QMainWindow):
         """Initialize the UI components."""
         # Set window properties
         self.setWindowTitle("EyesOff Privacy Monitor")
+
+        # Disable full-screen capability
+        self.setWindowFlags((self.windowFlags() & ~Qt.WindowFullscreenButtonHint & ~Qt.WindowMaximizeButtonHint) | Qt.CustomizeWindowHint)
+
         # Should we make the size dynamic?
         self.setMinimumSize(1000, 600)
         
