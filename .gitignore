@@ -4,3 +4,6 @@ testing/mediapipe_testing/blaze_face_short_range.tflite
 /yolo_testing
 todos.txt
 /dev_logs
+setup.py
+test.py
+code_walkthrough.txt
