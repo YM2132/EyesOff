@@ -87,19 +87,10 @@ class MainWindow(QMainWindow):
         self.settings_panel = SettingsPanel(self.config_manager)
         self.settings_panel.settings_changed.connect(self._apply_settings)
         self.settings_panel.test_alert_requested.connect(self._show_test_alert)
-        
-        # Add widgets to splitter
-        splitter.addWidget(self.webcam_view)
-        splitter.addWidget(self.settings_panel)
-        
-        # Set initial sizes - size of the two windows
-        splitter.setSizes([700, 300])
 
-        # Connect splitter resize signal to update webcam view size
-        splitter.splitterMoved.connect(self._resize_webcam_view)
-        
-        # Add splitter to layout
-        main_layout.addWidget(splitter)
+        # Add widgets to horizontal layout
+        main_layout.addWidget(self.webcam_view, 7)  # 70% width
+        main_layout.addWidget(self.settings_panel, 3)  # 30% width
         
         # Set layout to central widget
         central_widget.setLayout(main_layout)
@@ -219,7 +210,6 @@ class MainWindow(QMainWindow):
         """Initialize the core components."""
         try:
             # Create webcam manager - We get the frame_width and height from settings
-            # TODO Add a way in settings to get webcam native resolution
             self.webcam_manager = WebcamManager(
                 camera_id=self.config_manager.get("camera_id", 0),
                 frame_width=self.config_manager.get("frame_width", 640),
@@ -231,7 +221,6 @@ class MainWindow(QMainWindow):
             self.webcam_manager.error_occurred.connect(self._handle_error)
             
             # Create face detector
-            # TODO Chande default to yunet
             self.face_detector = FaceDetector(
                 detector_type=self.config_manager.get("detector_type", "yunet"),
                 model_path=self.config_manager.get("model_path", ""),
