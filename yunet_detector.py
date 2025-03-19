@@ -36,7 +36,7 @@ class YuNetDetector:
 			nmsThreshold=nms_threshold,
 			topK=top_k,
 			backendId=backend_id,
-			targetId=target_id
+			targetId=target_id,
 		)
 
 	def detect(self, frame: np.ndarray) -> Tuple[int, List[Tuple[int, int, int, int]], np.ndarray]:
