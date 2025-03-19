@@ -39,7 +39,7 @@ class ConfigManager:
         return {
             # Detector settings
             "detector_type": "mediapipe",
-            "model_path": "./models/blaze_face_short_range.tflite",
+            "model_path": "./models/face_detection_yunet_2023mar.onnx",
             "confidence_threshold": 0.75,
             "face_threshold": 1,
             
