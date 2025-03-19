@@ -69,7 +69,6 @@ class MainWindow(QMainWindow):
         # Disable full-screen capability
         self.setWindowFlags((self.windowFlags() & ~Qt.WindowFullscreenButtonHint & ~Qt.WindowMaximizeButtonHint) | Qt.CustomizeWindowHint)
 
-        # TODO - Should we make the size dynamic?
         self.setMinimumSize(1000, 600)
         
         # Create central widget
@@ -94,7 +93,6 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self.settings_panel)
         
         # Set initial sizes - size of the two windows
-        # TODO - How can we make the webcam view fit?
         splitter.setSizes([700, 300])
 
         # Connect splitter resize signal to update webcam view size
@@ -235,7 +233,7 @@ class MainWindow(QMainWindow):
             # Create face detector
             # TODO Chande default to yunet
             self.face_detector = FaceDetector(
-                detector_type=self.config_manager.get("detector_type", "mediapipe"),
+                detector_type=self.config_manager.get("detector_type", "yunet"),
                 model_path=self.config_manager.get("model_path", ""),
                 confidence_threshold=self.config_manager.get("confidence_threshold", 0.5)
             )
@@ -730,16 +728,30 @@ class MainWindow(QMainWindow):
         # Calculate aspect ratio of the webcam feed
         aspect_ratio = display_width / display_height
 
+        # Set maximum dimensions to prevent excessive growth
+        max_width = min(1600, container_width - 40)  # Max 1600px or container width - 40px
+        max_height = min(900, container_height - 40)  # Max 900px or container height - 40px
+
         # Set a fixed size for the webcam label that maintains aspect ratio
-        # and fits within the container
+        # and fits within the container and maximum limits
         if container_width / container_height > aspect_ratio:
             # Container is wider than needed - height is the limiting factor
-            new_height = container_height - 40  # Account for padding/margins
+            new_height = min(max_height, container_height - 40)  # Account for padding/margins
             new_width = int(new_height * aspect_ratio)
+
+            # Check if width exceeds max_width
+            if new_width > max_width:
+                new_width = max_width
+                new_height = int(new_width / aspect_ratio)
         else:
             # Container is taller than needed - width is the limiting factor
-            new_width = container_width - 40  # Account for padding/margins
+            new_width = min(max_width, container_width - 40)  # Account for padding/margins
             new_height = int(new_width / aspect_ratio)
+
+            # Check if height exceeds max_height
+            if new_height > max_height:
+                new_height = max_height
+                new_width = int(new_height * aspect_ratio)
 
         # Update the webcam view's label size
         self.webcam_view.webcam_label.setFixedSize(new_width, new_height)

@@ -26,7 +26,7 @@ class FaceDetector:
         Initialize the face detector.
         
         Args:
-            detector_type: Type of detector ('mediapipe' or 'moondream')
+            detector_type: Type of detector ('yunet')
             model_path: Path to the detector model file
             confidence_threshold: Minimum confidence for detection
         """
@@ -42,8 +42,6 @@ class FaceDetector:
     def _create_detector(self):
         """Create the appropriate detector based on the type."""
         try:
-            #if self.detector_type.lower() == 'mediapipe':
-            #    self.detector = MediapipeDetector(self.model_path, self.confidence_threshold)
             if self.detector_type.lower() == 'yunet':
                 self.detector = YuNetDetector(self.model_path, self.confidence_threshold)
             else:
@@ -127,8 +125,8 @@ class FaceDetector:
         # For now, we'll return only the implemented models
         return {
             "yunet": [
-                "/Users/moose/Documents/PyCharm_Projects/EyesOff3/models/face_detection_yunet_2023mar.onnx"
-            ]
+                "./models/face_detection_yunet_2023mar.onnx"
+            ],
             # Additional detector types can be added here in the future
             # Example:
             # "new_detector": [

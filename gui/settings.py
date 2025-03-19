@@ -477,7 +477,7 @@ class SettingsPanel(QWidget):
     def _load_settings(self):
         """Load settings from configuration manager into UI components."""
         # Detection tab
-        detector_type = self.config_manager.get("detector_type", "mediapipe")
+        detector_type = self.config_manager.get("detector_type", "yunet")
         self.model_type_combo.setCurrentText(detector_type)
         self._on_model_type_changed(detector_type)  # Populate model path combo
         
