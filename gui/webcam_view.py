@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QCheckBox
+from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QCheckBox, QSizePolicy
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QPixmap, QImage
 
@@ -43,45 +43,56 @@ class WebcamView(QWidget):
         self.fps_timer = QTimer(self)
         self.fps_timer.timeout.connect(self._update_fps)
         self.fps_timer.start(1000)  # Update FPS every second
-    
+
     def _init_ui(self):
         """Initialize the UI components."""
-        layout = QVBoxLayout()
-        
-        # Webcam display
+        # Main layout
+        main_layout = QVBoxLayout()
+
+        # Container for the webcam display
+        webcam_container = QWidget()
+        webcam_container.setStyleSheet("background-color: black;")
+        webcam_container_layout = QVBoxLayout(webcam_container)
+
+        # Webcam display label
         self.webcam_label = QLabel()
         self.webcam_label.setAlignment(Qt.AlignCenter)
-        self.webcam_label.setMinimumSize(640, 480)
-        self.webcam_label.setStyleSheet("background-color: black; border: 1px solid gray;")
-        
+        self.webcam_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
         # Add "No Camera" text initially
         initial_pixmap = QPixmap(640, 480)
         initial_pixmap.fill(Qt.black)
         self.webcam_label.setPixmap(initial_pixmap)
-        
-        # Controls layout
+
+        # Add webcam label to container with centering
+        webcam_container_layout.addWidget(self.webcam_label, 0, Qt.AlignCenter)
+
+        # Add container to main layout
+        main_layout.addWidget(webcam_container, 1)  # Give it a stretch factor of 1
+
+        # Controls layout - keep this separate from the video display
         controls_layout = QHBoxLayout()
-        
+        controls_layout.setContentsMargins(10, 5, 10, 5)
+
         # Start/Stop button
-        self.toggle_button = QPushButton("Stop Monitoring")
+        self.toggle_button = QPushButton("Start Monitoring")
         self.toggle_button.setToolTip("Start or stop the detector")
         self.toggle_button.clicked.connect(self._on_toggle_clicked)
-        
+
         # Snapshot button
         self.snapshot_button = QPushButton("Snapshot")
         self.snapshot_button.setToolTip("Take a snapshot of the current view")
         self.snapshot_button.clicked.connect(self._on_snapshot_clicked)
-        
+
         # Add controls to layout
         controls_layout.addWidget(self.toggle_button)
         controls_layout.addStretch(1)
         controls_layout.addWidget(self.snapshot_button)
-        
-        # Add components to main layout
-        layout.addWidget(self.webcam_label)
-        layout.addLayout(controls_layout)
-        
-        self.setLayout(layout)
+
+        # Add controls layout to main layout
+        main_layout.addLayout(controls_layout)
+
+        self.setLayout(main_layout)
     
     def _update_fps(self):
         """Update FPS calculation."""
@@ -158,31 +169,49 @@ class WebcamView(QWidget):
         # Update display if we have current detection results
         if self.detection_result is not None:
             self._update_display()
-    
+
     def _update_display(self):
         """Update the display with current frame and detection results."""
         if self.current_frame is None:
             return
-        
+
         # Start with the annotated frame from detection
         display_frame = self.detection_result.copy()
-        
+
         # Apply privacy mode if enabled
         if self.privacy_mode and self.bboxes:
             display_frame = apply_pixelation(display_frame, self.bboxes)
-        
-        # Draw detection information (FPS, face count, etc.)
+
+        # Get the original frame dimensions
+        original_height, original_width = display_frame.shape[:2]
+
+        # Calculate scale factor for text size based on current display size
+        # This ensures HUD elements scale appropriately
+        scale_factor = max(1.0, original_width / 640.0)  # Use 640 as a reference size
+
+        # Draw detection information with appropriate text size
         display_frame = draw_detection_info(
-            display_frame, 
-            self.num_faces, 
-            self.fps, 
+            display_frame,
+            self.num_faces,
+            self.fps,
             self.face_threshold,
-            self.alert_active
+            self.alert_active,
+            text_scale=scale_factor  # Pass scale factor to drawing function
         )
-        
-        # Convert to QPixmap and set in label
+
+        # Convert to QPixmap
         pixmap = cv_to_pixmap(display_frame)
-        self.webcam_label.setPixmap(pixmap)
+
+        # Scale the pixmap to fit the label size while maintaining aspect ratio
+        label_size = self.webcam_label.size()
+        scaled_pixmap = pixmap.scaled(
+            label_size,
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation
+        )
+
+        # Set the pixmap in the label
+        self.webcam_label.setPixmap(scaled_pixmap)
     
     def set_privacy_mode(self, enabled: bool):
         """
@@ -249,3 +278,9 @@ class WebcamView(QWidget):
         self.detection_result = None
         self.num_faces = 0
         self.bboxes = []
+
+    def resizeEvent(self, event):
+        """Handle resize events to adjust the display."""
+        super().resizeEvent(event)
+        if hasattr(self, 'detection_result') and self.detection_result is not None:
+            self._update_display()

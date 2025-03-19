@@ -99,42 +99,60 @@ def apply_pixelation(frame: np.ndarray, bboxes: List[Tuple[int, int, int, int]],
     return output
 
 
-def draw_detection_info(frame: np.ndarray, num_faces: int, fps: float, 
-                       threshold: int, alert_active: bool) -> np.ndarray:
+def draw_detection_info(frame: np.ndarray, num_faces: int, fps: float,
+                        threshold: int, alert_active: bool, text_scale: float = 1.0) -> np.ndarray:
     """
-    Draw detection information on the frame.
-    
+    Draw detection information on the frame with appropriate scaling.
+
     Args:
         frame: Input frame
         num_faces: Number of detected faces
         fps: Current FPS
         threshold: Face threshold for alert
         alert_active: Whether an alert is currently active
-        
+        text_scale: Scale factor for text and UI elements (default: 1.0)
+
     Returns:
         np.ndarray: Frame with information overlaid
     """
     output = frame.copy()
     height, width = output.shape[:2]
-    
-    # Background rectangle for text
-    cv2.rectangle(output, (10, 10), (250, 85), (0, 0, 0), -1)
-    cv2.rectangle(output, (10, 10), (250, 85), (255, 255, 255), 1)
-    
-    # Face count with color based on threshold
+
+    # Scale UI elements based on text_scale
+    rect_width = int(250 * text_scale)
+    rect_height = int(85 * text_scale)
+    border_thickness = max(1, int(1 * text_scale))
+
+    # Background rectangle for text - scaled
+    cv2.rectangle(output, (10, 10), (10 + rect_width, 10 + rect_height), (0, 0, 0), -1)
+    cv2.rectangle(output, (10, 10), (10 + rect_width, 10 + rect_height), (255, 255, 255), border_thickness)
+
+    # Face count with color based on threshold - scaled
     face_color = (0, 0, 255) if num_faces > threshold else (0, 255, 0)
-    cv2.putText(output, f"Faces: {num_faces}", (20, 40), 
-               cv2.FONT_HERSHEY_SIMPLEX, 0.8, face_color, 2)
-    
-    # FPS counter
-    cv2.putText(output, f"FPS: {fps:.1f}", (20, 70), 
-               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-    
-    # Alert indicator
+    font_size_faces = 0.8 * text_scale
+    font_thickness_faces = max(1, int(2 * text_scale))
+    cv2.putText(output, f"Faces: {num_faces}",
+                (int(20 * text_scale), int(40 * text_scale)),
+                cv2.FONT_HERSHEY_SIMPLEX, font_size_faces, face_color, font_thickness_faces)
+
+    # FPS counter - scaled
+    font_size_fps = 0.6 * text_scale
+    font_thickness_fps = max(1, int(1 * text_scale))
+    cv2.putText(output, f"FPS: {fps:.1f}",
+                (int(20 * text_scale), int(70 * text_scale)),
+                cv2.FONT_HERSHEY_SIMPLEX, font_size_fps, (255, 255, 255), font_thickness_fps)
+
+    # Alert indicator - scaled
     if alert_active:
         # Draw a red indicator in the corner
-        cv2.circle(output, (width - 30, 30), 15, (0, 0, 255), -1)
-        cv2.putText(output, "!", (width - 34, 36), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-    
+        indicator_radius = int(15 * text_scale)
+        indicator_x = width - int(30 * text_scale)
+        indicator_y = int(30 * text_scale)
+
+        cv2.circle(output, (indicator_x, indicator_y), indicator_radius, (0, 0, 255), -1)
+        cv2.putText(output, "!",
+                    (indicator_x - int(4 * text_scale), indicator_y + int(6 * text_scale)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8 * text_scale, (255, 255, 255),
+                    max(1, int(2 * text_scale)))
+
     return output

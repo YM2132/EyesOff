@@ -69,14 +69,15 @@ class MainWindow(QMainWindow):
         # Disable full-screen capability
         self.setWindowFlags((self.windowFlags() & ~Qt.WindowFullscreenButtonHint & ~Qt.WindowMaximizeButtonHint) | Qt.CustomizeWindowHint)
 
-        # Should we make the size dynamic?
+        # TODO - Should we make the size dynamic?
         self.setMinimumSize(1000, 600)
         
         # Create central widget
         central_widget = QWidget()
         main_layout = QHBoxLayout()
         
-        # Create splitter for resizable panels
+        # Create splitter for resizable panels - splitter is the panels
+        # for settings and the webcam view
         splitter = QSplitter(Qt.Horizontal)
         
         # Create webcam view
@@ -92,8 +93,12 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self.webcam_view)
         splitter.addWidget(self.settings_panel)
         
-        # Set initial sizes
+        # Set initial sizes - size of the two windows
+        # TODO - How can we make the webcam view fit?
         splitter.setSizes([700, 300])
+
+        # Connect splitter resize signal to update webcam view size
+        splitter.splitterMoved.connect(self._resize_webcam_view)
         
         # Add splitter to layout
         main_layout.addWidget(splitter)
@@ -215,7 +220,8 @@ class MainWindow(QMainWindow):
     def _init_components(self):
         """Initialize the core components."""
         try:
-            # Create webcam manager
+            # Create webcam manager - We get the frame_width and height from settings
+            # TODO Add a way in settings to get webcam native resolution
             self.webcam_manager = WebcamManager(
                 camera_id=self.config_manager.get("camera_id", 0),
                 frame_width=self.config_manager.get("frame_width", 640),
@@ -227,6 +233,7 @@ class MainWindow(QMainWindow):
             self.webcam_manager.error_occurred.connect(self._handle_error)
             
             # Create face detector
+            # TODO Chande default to yunet
             self.face_detector = FaceDetector(
                 detector_type=self.config_manager.get("detector_type", "mediapipe"),
                 model_path=self.config_manager.get("model_path", ""),
@@ -702,3 +709,39 @@ class MainWindow(QMainWindow):
                 self._center_window()
         else:
             self._center_window()
+
+        # Resize the webcam view to fit
+        # Add a small delay to ensure everything is properly laid out
+        QTimer.singleShot(100, self._resize_webcam_view)
+
+    def _resize_webcam_view(self):
+        """Resize the webcam view to fit the available space in the splitter."""
+        if not self.webcam_view or not self.webcam_manager:
+            return
+
+        # Get the current size of the webcam view's container in the splitter
+        container_width = self.webcam_view.width()
+        container_height = self.webcam_view.height()
+
+        # Get the current display resolution
+        display_width = self.webcam_manager.frame_width
+        display_height = self.webcam_manager.frame_height
+
+        # Calculate aspect ratio of the webcam feed
+        aspect_ratio = display_width / display_height
+
+        # Set a fixed size for the webcam label that maintains aspect ratio
+        # and fits within the container
+        if container_width / container_height > aspect_ratio:
+            # Container is wider than needed - height is the limiting factor
+            new_height = container_height - 40  # Account for padding/margins
+            new_width = int(new_height * aspect_ratio)
+        else:
+            # Container is taller than needed - width is the limiting factor
+            new_width = container_width - 40  # Account for padding/margins
+            new_height = int(new_width / aspect_ratio)
+
+        # Update the webcam view's label size
+        self.webcam_view.webcam_label.setFixedSize(new_width, new_height)
+
+        print(f"Resized webcam view to {new_width}x{new_height} (container: {container_width}x{container_height})")
