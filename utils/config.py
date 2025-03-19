@@ -38,7 +38,7 @@ class ConfigManager:
         """
         return {
             # Detector settings
-            "detector_type": "mediapipe",
+            "detector_type": "yunet",
             "model_path": "./models/face_detection_yunet_2023mar.onnx",
             "confidence_threshold": 0.75,
             "face_threshold": 1,
