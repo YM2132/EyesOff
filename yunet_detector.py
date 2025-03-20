@@ -182,11 +182,11 @@ class YuNetDetector:
 			Image with bounding boxes and keypoints
 		"""
 		# Constants for visualization
-		MARGIN = 10  # pixels
-		ROW_SIZE = 10  # pixels
-		FONT_SIZE = 1
-		FONT_THICKNESS = 1
-		TEXT_COLOR = (255, 0, 0)  # red (BGR)
+		MARGIN = 25  # pixels
+		ROW_SIZE = 25  # pixels
+		FONT_SIZE = 3
+		FONT_THICKNESS = 5
+		TEXT_COLOR = (255, 0, 0)  # Blue (BGR)
 
 		annotated_image = image.copy()
 		height, width, _ = image.shape
@@ -202,7 +202,7 @@ class YuNetDetector:
 			for keypoint in detection.keypoints:
 				keypoint_px = self._normalized_to_pixel_coordinates(keypoint.x, keypoint.y, width, height)
 				if keypoint_px:
-					color, thickness, radius = (0, 255, 0), 2, 2
+					color, thickness, radius = (0, 255, 0), 10, 2
 					cv.circle(annotated_image, keypoint_px, radius, color, thickness)
 
 			# Draw label and confidence score
