@@ -4,6 +4,7 @@ import os
 import argparse
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon
 
 from gui.main_window import MainWindow
 
@@ -29,7 +30,11 @@ def main():
     
     # Create the Qt Application
     app = QApplication(sys.argv)
-    
+
+    # Set app icon
+    app_icon = QIcon('gui/resources/icons/eyesoff_refined_logo.png')
+    app.setWindowIcon((app_icon))
+
     # Set application info
     app.setApplicationName("EyesOff")
     app.setApplicationDisplayName("EyesOff Privacy Monitor")
