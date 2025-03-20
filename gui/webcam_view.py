@@ -274,6 +274,7 @@ class WebcamView(QWidget):
         self.webcam_label.setPixmap(blank)
         
         # Reset state
+        self.alert_active = False
         self.current_frame = None
         self.detection_result = None
         self.num_faces = 0
