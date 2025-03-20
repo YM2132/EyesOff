@@ -49,6 +49,7 @@ class DetectionManagerThread(QThread):
         
         # Add detection verification
         self.consecutive_detections = 0
+        # TODO Simplify the detection delay we also have in the settings a debounce
         self.detection_delay_frames = 6  # About 0.2s at 30fps
         self.last_detection_state = False
         
@@ -246,11 +247,16 @@ class DetectionManagerThread(QThread):
         self.is_running = False
         self.condition.wakeAll()
         self.mutex.unlock()
-    
+
     def _cleanup(self):
         """Clean up resources when the thread stops."""
-        if self.detection_manager:
-            self.detection_manager.stop()
-            self.detection_manager = None
-            
+        # Cleanup the detection manager
+        self.detection_manager.is_alert_showing = False
+        self.detection_manager = None
+
+        # Upon stopping monitoring we reset the number of detections.
+        self.consecutive_detections = 0
+
+        # Send signal to GUI to dismiss alert
+        self.signals.dismiss_alert.emit()
         self.signals.manager_stopped.emit()
