@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import time
 from typing import List, Tuple, Dict, Any, Optional
+import os
 
 from utils.display import cv_to_pixmap, apply_privacy_blur, apply_pixelation, draw_detection_info
 
@@ -43,6 +44,9 @@ class WebcamView(QWidget):
         self.fps_timer = QTimer(self)
         self.fps_timer.timeout.connect(self._update_fps)
         self.fps_timer.start(1000)  # Update FPS every second
+
+        # Dir to save snapshots
+        self.dir_to_save = None
 
     def _init_ui(self):
         """Initialize the UI components."""
@@ -82,7 +86,7 @@ class WebcamView(QWidget):
         # Snapshot button
         self.snapshot_button = QPushButton("Snapshot")
         self.snapshot_button.setToolTip("Take a snapshot of the current view")
-        self.snapshot_button.clicked.connect(self._on_snapshot_clicked)
+        self.snapshot_button.clicked.connect(self.on_snapshot_clicked)
 
         # Add controls to layout
         controls_layout.addWidget(self.toggle_button)
@@ -238,18 +242,25 @@ class WebcamView(QWidget):
             self.monitoring_toggled.emit(True)
             self.toggle_button.setText("Stop Monitoring")
     
-    def _on_snapshot_clicked(self):
+    def on_snapshot_clicked(self):
         """Handle snapshot button click."""
         if self.current_frame is not None:
             # Get timestamp for filename
             timestamp = time.strftime("%Y%m%d-%H%M%S")
             filename = f"eyesoff_snapshot_{timestamp}.jpg"
+
+            # If the dir_to_save doesn't exist we should make it
+            # TODO - This may require perms
+            if not os.path.exists(os.path.expanduser(self.dir_to_save)):
+                os.makedirs(os.path.expanduser(self.dir_to_save))
+
+            path_to_save = os.path.expanduser(os.path.join(self.dir_to_save, filename))
             
             # Save current display frame
             if self.detection_result is not None:
-                cv2.imwrite(filename, self.detection_result)
-                
-                # You could add a notification here to tell the user the snapshot was saved
+                cv2.imwrite(path_to_save, self.detection_result)
+
+                # TODO - Add a notification to tell the user the snapshot was saved
                 print(f"Snapshot saved as {filename}")
     
     def set_monitoring_state(self, is_monitoring: bool):

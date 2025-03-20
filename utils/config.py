@@ -28,7 +28,8 @@ class ConfigManager:
         
         # Load configuration from files and settings
         self._load_config()
-    
+
+    # TODO - Add a path to where snapshots are saved
     def _get_default_config(self) -> Dict[str, Any]:
         """
         Get the default configuration.
@@ -74,6 +75,10 @@ class ConfigManager:
             "theme": "system",  # system, light, dark
             "ui_scale": 1.0,
             "language": "en",
+
+            # Path to save snapshots
+            # TODO - make use of the apps sandbox environment or otherise https://developer.apple.com/documentation/security/app-sandbox
+            "snapshot_path": "~/.eyesoff/snapshots",
         }
     
     def _load_config(self):
@@ -100,7 +105,7 @@ class ConfigManager:
                     value = float(value)
                 
                 self.current_config[key] = value
-    
+
     def save_config(self):
         """Save the current configuration to both QSettings and JSON file."""
         # Save to QSettings

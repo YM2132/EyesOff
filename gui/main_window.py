@@ -240,6 +240,8 @@ class MainWindow(QMainWindow):
             self.detection_thread.signals.stats_updated.connect(self._handle_stats_update)
             self.detection_thread.signals.show_alert.connect(self._on_show_alert)
             self.detection_thread.signals.dismiss_alert.connect(self._on_dismiss_alert)
+            # Connect a signal to take a screenshot of screen when we show alert
+            self.detection_thread.signals.show_alert.connect(self._capture_webcam_on_alert)
             
             # Create frame processing timer
             self.frame_timer = QTimer(self)
@@ -410,6 +412,10 @@ class MainWindow(QMainWindow):
                 # Refresh display
                 if hasattr(self.webcam_view, 'detection_result') and self.webcam_view.detection_result is not None:
                     self.webcam_view._update_display()
+
+                if 'snapshot_path' in settings:
+                    print(settings['snapshot_path'])
+                    self.webcam_view.dir_to_save = settings['snapshot_path']
             
             # Update alert dialog settings
             if self.alert_dialog:
@@ -520,6 +526,12 @@ class MainWindow(QMainWindow):
             self.statusBar.showMessage("Privacy mode enabled", 3000)
         else:
             self.statusBar.showMessage("Privacy mode disabled", 3000)
+
+    def _capture_webcam_on_alert(self):
+        """
+        Take a capture of the webcam when we show the alert for user review later
+        """
+        self.webcam_view.on_snapshot_clicked()
 
     def _on_show_alert(self):
         """Handle signal to show the alert dialog."""

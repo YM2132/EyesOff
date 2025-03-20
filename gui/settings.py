@@ -465,10 +465,29 @@ class SettingsPanel(QWidget):
         ui_layout.addRow("Minimize to System Tray:", self.minimize_tray_check)
         
         ui_group.setLayout(ui_layout)
+
+        # Snapshot saving path group
+        snapshot_group = QGroupBox("Path to save snapshots")
+        snapshot_layout = QFormLayout()
+
+        # Selection for path to save snapshots
+        path_layout = QHBoxLayout()
+        self.path_edit = QLineEdit()
+
+        path_browse_button = QPushButton("Browse...")
+        path_browse_button.clicked.connect(self._on_path_browse_clicked)
+
+        path_layout.addWidget(self.path_edit)
+        path_layout.addWidget(path_browse_button)
+
+        snapshot_layout.addRow("Path:", path_layout)
+
+        snapshot_group.setLayout(snapshot_layout)
         
         # Add all groups to tab layout
         layout.addWidget(startup_group)
         layout.addWidget(ui_group)
+        layout.addWidget(snapshot_group)
         layout.addStretch(1)
         
         tab.setLayout(layout)
@@ -554,6 +573,8 @@ class SettingsPanel(QWidget):
         self.start_minimized_check.setChecked(self.config_manager.get("start_minimized", False))
         self.always_top_check.setChecked(self.config_manager.get("always_on_top", False))
         self.minimize_tray_check.setChecked(self.config_manager.get("minimize_to_tray", True))
+        # Add setting for getting the snapshot path
+        self.path_edit.setText(self.config_manager.get("snapshot_path", ""))
     
     def _on_model_type_changed(self, model_type: str):
         """
@@ -598,6 +619,15 @@ class SettingsPanel(QWidget):
         
         if filename:
             self.alert_sound_edit.setText(filename)
+
+    def _on_path_browse_clicked(self):
+        """Handle sound file browse button click."""
+        filename = QFileDialog.getExistingDirectory(
+            self, "Select Directory", "", QFileDialog.ShowDirsOnly
+        )
+
+        if filename:
+            self.path_edit.setText(filename)
     
     def _on_resolution_changed(self, resolution_text: str):
         """
