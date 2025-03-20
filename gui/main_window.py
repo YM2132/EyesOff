@@ -311,6 +311,10 @@ class MainWindow(QMainWindow):
             return
             
         try:
+            # Explicitly dismiss any visible alerts first
+            if self.alert_dialog and self.alert_dialog.isVisible():
+                self.alert_dialog.close()
+
             # Stop frame timer
             if self.frame_timer and self.frame_timer.isActive():
                 self.frame_timer.stop()
