@@ -77,7 +77,7 @@ class MainWindow(QMainWindow):
         
         # Create splitter for resizable panels - splitter is the panels
         # for settings and the webcam view
-        splitter = QSplitter(Qt.Horizontal)
+        # splitter = QSplitter(Qt.Horizontal)
         
         # Create webcam view
         self.webcam_view = WebcamView()
