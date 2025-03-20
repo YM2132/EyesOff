@@ -356,7 +356,13 @@ class AlertDialog(QDialog):
     def _init_tray_icon(self):
         """Initialize system tray icon for notifications."""
         self.tray_icon = QSystemTrayIcon(self.parent())
-        self.tray_icon.setIcon(QIcon.fromTheme("dialog-warning"))  # Use a default icon
+
+        # TODO Add my icon to tray icon
+        # Use your custom icon
+        icon_path = 'path/to/your/eyesoff_refined_logo.png'
+        self.tray_icon.setIcon(QIcon(icon_path))
+
+        #self.tray_icon.setIcon(QIcon.fromTheme("dialog-warning"))  # Use a default icon
         
         # Connect the activated signal to handle notification click
         if self.on_notification_clicked:
