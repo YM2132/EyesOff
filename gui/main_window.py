@@ -546,6 +546,11 @@ class MainWindow(QMainWindow):
             # If alert is turned off, simply show native notification
             self.alert_dialog._show_native_notification()
 
+            # Since we can't detect notification dismissal, immediately
+            # update the detection thread's state as if it were dismissed
+            if self.detection_thread and self.detection_thread.detection_manager:
+                self.detection_thread.detection_manager.is_alert_showing = False
+
             # Log for debugging
             print("DEBUG: Showing notification (alert is turned off)")
             print('---' * 25)
