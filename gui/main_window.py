@@ -586,7 +586,7 @@ class MainWindow(QMainWindow):
         # Reset the detection manager state
         # TODO - Now we handle the detection_manager.is_alert_showing state in two locations, we should improve this
         if self.detection_thread and self.detection_thread.detection_manager:
-            self.detection_thread.detection_manager.is_alert_showing = False
+            self.detection_thread.handle_user_dismissal()
             self.statusBar.showMessage("Alert dismissed", 2000)
             
     def _on_monitoring_toggled(self, enable: bool):
