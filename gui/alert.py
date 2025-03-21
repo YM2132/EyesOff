@@ -407,11 +407,12 @@ class AlertDialog(QDialog):
             )
         
         # For macOS, we can also try using the native notification system via applescript
+        # TODO - Switch to Mac native notification API to get greater control or a python lib to show mac notifications
         if platform.system() == 'Darwin' and NATIVE_NOTIFICATION_SUPPORT:
             try:
-                # Create an AppleScript command to display a notification
+                # Create a more concise AppleScript command
                 applescript = f'''
-                display notification "Someone is looking at your screen! Check your privacy." with title "Privacy Alert" sound name "Sosumi"
+                display notification "Privacy Alert: Someone is looking at your screen." with title "EyesOff" sound name "Sosumi"
                 '''
                 subprocess.run(["osascript", "-e", applescript], check=True)
             except Exception as e:
