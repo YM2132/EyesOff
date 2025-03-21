@@ -437,7 +437,8 @@ class SettingsPanel(QWidget):
         """
         tab = QWidget()
         layout = QVBoxLayout()
-        
+
+        # TODO - Reactivate these components and make them work
         # Startup group
         startup_group = QGroupBox("Startup")
         startup_layout = QFormLayout()
@@ -450,7 +451,7 @@ class SettingsPanel(QWidget):
         self.start_minimized_check = QCheckBox()
         startup_layout.addRow("Start Minimized:", self.start_minimized_check)
         
-        startup_group.setLayout(startup_layout)
+        #startup_group.setLayout(startup_layout)
         
         # UI settings group
         ui_group = QGroupBox("User Interface")
@@ -464,7 +465,7 @@ class SettingsPanel(QWidget):
         self.minimize_tray_check = QCheckBox()
         ui_layout.addRow("Minimize to System Tray:", self.minimize_tray_check)
         
-        ui_group.setLayout(ui_layout)
+        #ui_group.setLayout(ui_layout)
 
         # Snapshot saving path group
         snapshot_group = QGroupBox("Path to save snapshots")
@@ -485,8 +486,8 @@ class SettingsPanel(QWidget):
         snapshot_group.setLayout(snapshot_layout)
         
         # Add all groups to tab layout
-        layout.addWidget(startup_group)
-        layout.addWidget(ui_group)
+        #layout.addWidget(startup_group)
+        #layout.addWidget(ui_group)
         layout.addWidget(snapshot_group)
         layout.addStretch(1)
         
