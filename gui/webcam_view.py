@@ -35,7 +35,7 @@ class WebcamView(QWidget):
         self.privacy_mode = False
         self.frame_count = 0
         self.last_fps_time = time.time()
-        self.is_monitoring = False  # Default behaviour, start with monitoring off
+        self.is_monitoring = True
         
         # Initialize UI
         self._init_ui()
