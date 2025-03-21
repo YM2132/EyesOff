@@ -45,6 +45,7 @@ class ConfigManager:
             "face_threshold": 1,
             
             # Camera settings
+            # TODO - Change the default frame width setting
             "camera_id": 0,
             "frame_width": 640,
             "frame_height": 480,
@@ -106,6 +107,12 @@ class ConfigManager:
                 
                 self.current_config[key] = value
 
+        # TODO - Once again a better way to do this?
+        if self.current_config.get("camera_id", 0) < 0:
+            print("Invalid camera_id detected in config, resetting to default")
+            self.current_config["camera_id"] = 0
+            self.settings.setValue("camera_id", 0)
+
     def save_config(self):
         """Save the current configuration to both QSettings and JSON file."""
         # Save to QSettings
@@ -148,6 +155,12 @@ class ConfigManager:
             key: Configuration key
             value: Configuration value
         """
+        # TODO - There has to be a better way to do this?
+        # Validate camera_id to prevent invalid values
+        if key == "camera_id" and value < 0:
+            print(f"Attempted to set invalid camera_id: {value}, using default 0 instead")
+            value = 0
+
         self.current_config[key] = value
         # Save immediately for persistence
         self.settings.setValue(key, value)
