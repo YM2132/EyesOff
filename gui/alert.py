@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QLabel, QPushButton, 
                            QGraphicsOpacityEffect, QDesktopWidget, QApplication,
                            QSystemTrayIcon)
-from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QSize, pyqtSlot
+from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QSize, QObject, pyqtSlot, pyqtSignal
 from PyQt5.QtGui import QFont, QColor, QPalette, QIcon
 
 import time
@@ -25,6 +25,10 @@ if platform.system() == 'Darwin':
 else:
     NATIVE_NOTIFICATION_SUPPORT = False
 
+class AlertDialogSignals(QObject):
+    """Signals for alert dialog"""
+    # Signal emitted when an alert should be dismissed
+    user_dismiss_alert = pyqtSignal()
 
 class AlertDialog(QDialog):
     """
@@ -65,7 +69,10 @@ class AlertDialog(QDialog):
             on_notification_clicked: Callback when notification is clicked
         """
         super().__init__(parent)
-        
+
+        # Signals
+        self.signals = AlertDialogSignals()
+
         # Store settings
         self.alert_text = alert_text
         self.alert_color = alert_color
@@ -164,7 +171,8 @@ class AlertDialog(QDialog):
         # Add dismiss button
         self.dismiss_button = QPushButton("Dismiss")
         self.dismiss_button.setFont(QFont("Arial", 18))  # Increased font size
-        self.dismiss_button.clicked.connect(self.close)
+        #self.dismiss_button.clicked.connect(self.close)
+        self.dismiss_button.clicked.connect(self._on_user_dismiss)
         # Make the button more prominent
         self.dismiss_button.setMinimumSize(150, 50)
         self.dismiss_button.setStyleSheet(
@@ -255,6 +263,10 @@ class AlertDialog(QDialog):
             self._fade_out()
         else:
             self.close()
+
+    def _on_user_dismiss(self):
+        """Handle user clicking the dismiss button"""
+        self.signals.user_dismiss_alert.emit()
 
     def showEvent(self, event):
         """Handle dialog show event."""

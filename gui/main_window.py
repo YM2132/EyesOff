@@ -270,6 +270,9 @@ class MainWindow(QMainWindow):
             use_native_notifications=self.config_manager.get("use_native_notifications", False),
             on_notification_clicked=self.show
         )
+
+        # Connect the user dismissal signal from the alert_dialog
+        self.alert_dialog.signals.user_dismiss_alert.connect(self._on_dismiss_alert)
     
     def _start_monitoring(self):
         """Start the monitoring process."""
@@ -579,6 +582,12 @@ class MainWindow(QMainWindow):
         """Handle signal to dismiss the alert dialog."""
         if self.alert_dialog and self.alert_dialog.isVisible():
             self.alert_dialog.close()
+
+        # Reset the detection manager state
+        # TODO - Now we handle the detection_manager.is_alert_showing state in two locations, we should improve this
+        if self.detection_thread and self.detection_thread.detection_manager:
+            self.detection_thread.detection_manager.is_alert_showing = False
+            self.statusBar.showMessage("Alert dismissed", 2000)
             
     def _on_monitoring_toggled(self, enable: bool):
         """
