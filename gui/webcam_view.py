@@ -35,7 +35,7 @@ class WebcamView(QWidget):
         self.privacy_mode = False
         self.frame_count = 0
         self.last_fps_time = time.time()
-        self.is_monitoring = True
+        self.is_monitoring = False  # Default behaviour, start with monitoring off
         
         # Initialize UI
         self._init_ui()
@@ -241,7 +241,8 @@ class WebcamView(QWidget):
             # Currently stopped, emit signal to start
             self.monitoring_toggled.emit(True)
             self.toggle_button.setText("Stop Monitoring")
-    
+
+    # TODO - Make this behaviour activate by default but add an option to turn it off
     def on_snapshot_clicked(self):
         """Handle snapshot button click."""
         if self.current_frame is not None:

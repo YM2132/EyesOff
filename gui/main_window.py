@@ -58,8 +58,8 @@ class MainWindow(QMainWindow):
         self._apply_settings(self.config_manager.get_all())
         
         # Auto-start if configured
-        if not self.config_manager.get("start_minimized", False):
-            self._start_monitoring()
+        #if not self.config_manager.get("start_minimized", False):
+        #    self._start_monitoring()
     
     def _init_ui(self):
         """Initialize the UI components."""
@@ -296,9 +296,9 @@ class MainWindow(QMainWindow):
             self.start_action.setEnabled(False)
             self.stop_action.setEnabled(True)
             
-            # Update webcam view state
+            # Update webcam view state, start with monitoring off
             if self.webcam_view:
-                self.webcam_view.set_monitoring_state(True)
+                self.webcam_view.set_monitoring_state(False)
             
             # Update status bar
             self.statusBar.showMessage("Monitoring active")
