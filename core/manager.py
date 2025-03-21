@@ -186,6 +186,9 @@ class DetectionManagerThread(QThread):
 				# 3. Either:
 				#    a. Face count increased from previous reading, OR
 				#    b. We're coming from below threshold (num_faces_last_alert is 0)
+				print(
+					f"DEBUG: multiple_viewers={multiple_viewers_detected}, was_alert_showing={was_alert_showing}, face_count={face_count}, threshold={threshold}, consecutive={self.consecutive_detections}")
+
 				if multiple_viewers_detected and not was_alert_showing and (
 						face_count_increased or self.num_faces_last_alert == 0):
 					self.logger.info(f"Multiple viewers detected ({face_count})! Showing privacy alert.")
@@ -199,6 +202,7 @@ class DetectionManagerThread(QThread):
 					self.signals.alert_state_changed.emit(True)
 
 				elif not multiple_viewers_detected and was_alert_showing:
+					print("BELOW THRESHOLD")
 					self.logger.info("No unauthorized viewers detected. Hiding alert.")
 					self.detection_manager.is_alert_showing = False
 					# Reset tracking
@@ -222,6 +226,9 @@ class DetectionManagerThread(QThread):
 		"""Handle when a user manually dismisses an alert."""
 		if self.detection_manager:
 			self.detection_manager.is_alert_showing = False
+
+		# emit signal to remove the exclamation mark
+		self.signals.alert_state_changed.emit(False)
 
 		self.num_faces_last_alert = self.current_face_count
 		self.logger.info(f"Alert manually dismissed by user. Last alert face count: {self.num_faces_last_alert}")

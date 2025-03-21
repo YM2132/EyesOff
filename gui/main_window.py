@@ -546,10 +546,14 @@ class MainWindow(QMainWindow):
             # If alert is turned off, simply show native notification
             self.alert_dialog._show_native_notification()
 
-            # Since we can't detect notification dismissal, immediately
-            # update the detection thread's state as if it were dismissed
+            # TODO - When we switch to native notifications then change this behaviour to not be automatic
+            # Show the alert indicator in the UI
             if self.detection_thread and self.detection_thread.detection_manager:
-                self._on_dismiss_alert()
+                self.detection_thread.detection_manager.is_alert_showing = True
+                self.webcam_view.update_alert_state(True)  # Ensure UI is updated
+
+                # Set a timer to auto-dismiss after a short period (e.g., 3 seconds)
+                QTimer.singleShot(500, self._auto_dismiss_notification_alert)
 
             # Log for debugging
             print("DEBUG: Showing notification (alert is turned off)")
@@ -593,7 +597,14 @@ class MainWindow(QMainWindow):
         if self.detection_thread and self.detection_thread.detection_manager:
             self.detection_thread.handle_user_dismissal()
             self.statusBar.showMessage("Alert dismissed", 2000)
-            
+
+    def _auto_dismiss_notification_alert(self):
+        """Auto-dismiss alert state after notification is shown"""
+        if self.detection_thread and self.detection_thread.detection_manager:
+            self.detection_thread.detection_manager.is_alert_showing = False
+            self.webcam_view.update_alert_state(False)  # Update UI
+            print("DEBUG: Auto-dismissed notification alert")
+
     def _on_monitoring_toggled(self, enable: bool):
         """
         Handle monitoring toggle from webcam view.
