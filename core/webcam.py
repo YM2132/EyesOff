@@ -1,6 +1,7 @@
+from typing import Tuple, Optional
+
 import cv2
 import numpy as np
-from typing import Tuple, Optional
 from PyQt5.QtCore import QObject, pyqtSignal
 
 
@@ -130,19 +131,43 @@ class WebcamManager(QObject):
             return True
         return False
 
+    # TODO - MAke use of an actual apple API to check for permissions before we kick off the app. This is a crutch approach which will not holdup, we should wait until user grants access before we start the app. If the user does not grant access we should show them a message
     @staticmethod
-    def get_device_list() -> list:
+    def get_device_list(max_retries=5, retry_delay=1.0) -> list:
         """
-        Get a list of available camera devices.
+        Get a list of available camera devices with retry mechanism.
+
+        Args:
+            max_retries: Maximum number of retries if no cameras are found
+            retry_delay: Delay between retries in seconds
 
         Returns:
             list: List of available camera device IDs
         """
+        retry_count = 0
         available_cameras = []
-        # Check the first 10 camera indices
-        for i in range(10):
-            cap = cv2.VideoCapture(i)
-            if cap.isOpened():
-                available_cameras.append(i)
-                cap.release()
-        return available_cameras
+
+        while retry_count <= max_retries:
+            # Check the first 10 camera indices
+            for i in range(10):
+                cap = cv2.VideoCapture(i)
+                if cap.isOpened():
+                    available_cameras.append(i)
+                    cap.release()
+
+            # If we found cameras, return the list
+            if available_cameras:
+                return available_cameras
+
+            # No cameras found, increment retry count
+            retry_count += 1
+
+            # Only wait and retry if we haven't hit the maximum
+            if retry_count <= max_retries:
+                print(f"No cameras found, retrying ({retry_count}/{max_retries})...")
+                import time
+                time.sleep(retry_delay)
+
+        # If we get here, we've exhausted all retries
+        print("Failed to find any camera devices after maximum retries")
+        return available_cameras  # Will be empty
