@@ -6,8 +6,9 @@
 
 from itertools import product
 
-import numpy as np
 import cv2 as cv
+import numpy as np
+
 
 class YuNet:
     def __init__(self, modelPath, inputSize=[320, 320], confThreshold=0.6, nmsThreshold=0.3, topK=5000, backendId=0, targetId=0):

@@ -1,12 +1,12 @@
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, 
-                           QLabel, QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox,
-                           QPushButton, QSlider, QLineEdit, QFileDialog, QGroupBox,
-                           QFormLayout, QColorDialog, QGridLayout)
+import os
+from typing import Dict, Any, List, Tuple
+
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QSettings
 from PyQt5.QtGui import QColor
-
-from typing import Dict, Any, List, Tuple
-import os
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
+                             QLabel, QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox,
+                             QPushButton, QSlider, QLineEdit, QFileDialog, QGroupBox,
+                             QFormLayout, QColorDialog, QGridLayout)
 
 from core.detector import FaceDetector
 from core.webcam import WebcamManager

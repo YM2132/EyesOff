@@ -1,10 +1,11 @@
+from typing import Tuple, List, Dict, Any, Optional
+
 import cv2
 import numpy as np
-from typing import Tuple, List, Dict, Any, Optional
 from PyQt5.QtCore import QObject, pyqtSignal
 
 # Import the existing detector implementations
-#from mediapipe_detector import MediapipeDetector
+# from mediapipe_detector import MediapipeDetector
 from yunet_detector import YuNetDetector
 
 

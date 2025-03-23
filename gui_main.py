@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-import sys
-import os
 import argparse
-from PyQt5.QtWidgets import QApplication
+import os
+import sys
+
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QApplication
 
 from gui.main_window import MainWindow
 

@@ -1,12 +1,12 @@
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QLabel, QPushButton, 
-                           QGraphicsOpacityEffect, QDesktopWidget, QApplication,
-                           QSystemTrayIcon)
+import platform
+import time
+from typing import Tuple, Optional, Callable
+
 from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QSize, QObject, pyqtSlot, pyqtSignal
 from PyQt5.QtGui import QFont, QColor, QPalette, QIcon
-
-import time
-import platform
-from typing import Tuple, Optional, Callable
+from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QLabel, QPushButton,
+							 QGraphicsOpacityEffect, QDesktopWidget, QApplication,
+							 QSystemTrayIcon)
 
 # Try to import QtMultimedia for sound support
 try:
@@ -424,7 +424,8 @@ class AlertDialog(QDialog):
             self.dismiss_timer.setSingleShot(True)
             self.dismiss_timer.timeout.connect(self.close)
             self.dismiss_timer.start(int(self.alert_duration * 1000))
-    
+
+    # TODO - Only shows system notification
     @pyqtSlot()
     def test_alert(self):
         """Show a test alert."""

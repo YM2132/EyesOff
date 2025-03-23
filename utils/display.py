@@ -1,8 +1,9 @@
+from typing import Tuple, List, Optional
+
 import cv2
 import numpy as np
-from typing import Tuple, List, Optional
-from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QImage, QPixmap
 
 
 def cv_to_qimage(cv_img: np.ndarray) -> QImage:
@@ -143,6 +144,7 @@ def draw_detection_info(frame: np.ndarray, num_faces: int, fps: float,
                 cv2.FONT_HERSHEY_SIMPLEX, font_size_fps, (255, 255, 255), font_thickness_fps)
 
     # Alert indicator - scaled
+    # TODO - Alert indicator is not being removed
     if alert_active:
         # Draw a red indicator in the corner
         indicator_radius = int(15 * text_scale)

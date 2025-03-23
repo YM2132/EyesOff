@@ -1,7 +1,8 @@
-import cv2 as cv
-import numpy as np
 import math
 from typing import Tuple, List, Optional
+
+import cv2 as cv
+import numpy as np
 
 from utils.yunet import YuNet
 
@@ -182,6 +183,7 @@ class YuNetDetector:
 			Image with bounding boxes and keypoints
 		"""
 		# Constants for visualization
+		# TODO Make these dynamic based on the scaling factor
 		MARGIN = 25  # pixels
 		ROW_SIZE = 25  # pixels
 		FONT_SIZE = 3

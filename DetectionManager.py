@@ -1,9 +1,10 @@
+import logging
+import time
+from threading import Thread, Lock, Event
+from typing import Optional, Tuple, Dict, Any, Callable
+
 import cv2
 import numpy as np
-import logging
-from threading import Thread, Lock, Event
-import time
-from typing import Optional, Tuple, Dict, Any, Callable
 
 
 class DetectionManager:

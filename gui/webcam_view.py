@@ -1,12 +1,12 @@
-from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QCheckBox, QSizePolicy
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QPixmap, QImage
+import os
+import time
+from typing import List, Tuple, Dict, Any, Optional
 
 import cv2
 import numpy as np
-import time
-from typing import List, Tuple, Dict, Any, Optional
-import os
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, pyqtSlot
+from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QCheckBox, QSizePolicy
 
 from utils.display import cv_to_pixmap, apply_privacy_blur, apply_pixelation, draw_detection_info
 

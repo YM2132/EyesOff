@@ -1,6 +1,7 @@
 import logging
 import time
 from typing import Dict, Any, Optional
+
 from PyQt5.QtCore import QObject, pyqtSignal, QThread, QMutex, QWaitCondition
 
 # Import the detection manager
@@ -186,8 +187,6 @@ class DetectionManagerThread(QThread):
 				# 3. Either:
 				#    a. Face count increased from previous reading, OR
 				#    b. We're coming from below threshold (num_faces_last_alert is 0)
-				print(
-					f"DEBUG: multiple_viewers={multiple_viewers_detected}, was_alert_showing={was_alert_showing}, face_count={face_count}, threshold={threshold}, consecutive={self.consecutive_detections}")
 
 				if multiple_viewers_detected and not was_alert_showing and (
 						face_count_increased or self.num_faces_last_alert == 0):

@@ -1,6 +1,7 @@
-import os
 import json
+import os
 from typing import Dict, Any, Optional
+
 from PyQt5.QtCore import QSettings
 
 

@@ -1,21 +1,21 @@
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-                           QSplitter, QAction, QMenu, QStatusBar, QMessageBox,
-                           QSystemTrayIcon, QStyle, QApplication)
-from PyQt5.QtCore import Qt, QTimer, QSettings, pyqtSlot
-from PyQt5.QtGui import QIcon, QCloseEvent
-
 import os
 import sys
 import time
 from typing import Dict, Any, Optional
 
-from gui.webcam_view import WebcamView
-from gui.settings import SettingsPanel
-from gui.alert import AlertDialog
-from utils.config import ConfigManager
-from core.webcam import WebcamManager
+from PyQt5.QtCore import Qt, QTimer, QSettings, pyqtSlot
+from PyQt5.QtGui import QIcon, QCloseEvent
+from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+							 QSplitter, QAction, QMenu, QStatusBar, QMessageBox,
+							 QSystemTrayIcon, QStyle, QApplication)
+
 from core.detector import FaceDetector
 from core.manager import DetectionManagerThread
+from core.webcam import WebcamManager
+from gui.alert import AlertDialog
+from gui.settings import SettingsPanel
+from gui.webcam_view import WebcamView
+from utils.config import ConfigManager
 
 
 class MainWindow(QMainWindow):

@@ -1,10 +1,11 @@
+import math
+from typing import Tuple, Union, List, Optional
+
 import cv2
 import mediapipe as mp
 import numpy as np
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
-import math
-from typing import Tuple, Union, List, Optional
 
 
 class MediapipeDetector:
