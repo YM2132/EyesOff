@@ -8,10 +8,8 @@ EyesOff is a privacy protection application that monitors your webcam for unauth
 ## Features
 
 - **Privacy Protection**: Alerts when unauthorized viewers are detected looking at your screen
-- **Real-time Face Detection**: Uses MediaPipe for efficient face detection with support for additional models
+- **Real-time Face Detection**: Uses YuNet for efficient face detection with support for additional models
 - **Customizable Alerts**: Configure alert appearance, position, and behavior
-- **System Integration**: System tray support and startup options
-- **Cross-Platform**: Works on Windows, macOS, and Linux
 
 ## Quick Start
 
@@ -80,27 +78,6 @@ eyesoff/
 └── main.py             # Command-line application entry point
 ```
 
-## Command Line Usage
-
-For headless operation, a command-line interface is also available:
-
-```bash
-python main.py [options]
-```
-
-Options:
-- `--detector`: Choose face detector type (currently only mediapipe is fully implemented)
-- `--model`: Path to detector model file
-- `--confidence`: Detection confidence threshold (0.0-1.0)
-- `--face-threshold`: Number of faces that triggers the alert
-- `--camera`: Camera device ID
-- `--width`: Frame width
-- `--height`: Frame height
-- `--no-animations`: Disable alert animations
-- `--alert-position`: Position of the alert (center, top, bottom)
-- `--debounce`: Debounce time for alerts (seconds)
-- `--no-display`: Hide the detection visualization window
-
 ## Extending EyesOff
 
 ### Adding a New Detector
@@ -117,32 +94,6 @@ The alert system supports various customization options:
 - Animation enabling/disabling
 - Alert duration and dismissal options
 - Sound alerts
-
-## Building for Distribution
-
-Use PyInstaller to create standalone executables:
-
-```bash
-# Install PyInstaller
-pip install pyinstaller
-
-# Build standalone executable
-pyinstaller --name EyesOff --onefile --windowed --icon=path/to/icon.ico gui_main.py
-```
-
-For detailed distribution instructions, see [DISTRIBUTION.md](docs/DISTRIBUTION.md).
-
-## Dependencies
-
-- Python 3.8+
-- OpenCV
-- MediaPipe
-- NumPy
-- PyQt5
-
-## License
-
-[MIT License](LICENSE)
 
 ## Contributing
 
