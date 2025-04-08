@@ -4,6 +4,8 @@ from typing import Dict, Any, Optional
 
 from PyQt5.QtCore import QSettings
 
+from utils.resource_path import resource_path
+
 
 class ConfigManager:
     """
@@ -38,10 +40,11 @@ class ConfigManager:
         Returns:
             Dict: Default configuration settings
         """
+        print(f"CONFIG MODEL PATH: {resource_path('models/face_detection_yunet_2023mar.onnx')}")
         return {
             # Detector settings
             "detector_type": "yunet",
-            "model_path": "./models/face_detection_yunet_2023mar.onnx",
+            "model_path": f"{resource_path('models/face_detection_yunet_2023mar.onnx')}",
             "confidence_threshold": 0.75,
             "face_threshold": 1,
             
