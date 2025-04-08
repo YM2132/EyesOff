@@ -208,26 +208,26 @@ class SettingsPanel(QWidget):
         
         threshold_group.setLayout(threshold_layout)
         
-        # Visualization group
-        visual_group = QGroupBox("Visualization")
-        visual_layout = QFormLayout()
+        # Visualization group - Define but i will remove the box for now. I do not need settings for privacy mode
+        #visual_group = QGroupBox("Visualization")
+        #visual_layout = QFormLayout()
         
         # Show detection visualization - Defined but doenst do anything
         # self.show_detection_check = QCheckBox()
-        #self.show_detection_check.setToolTip("Show detection boundaries and information")
-        #visual_layout.addRow("Show Detection Visualization:", self.show_detection_check)
+        # self.show_detection_check.setToolTip("Show detection boundaries and information")
+        # visual_layout.addRow("Show Detection Visualization:", self.show_detection_check)
         
         # Privacy mode
-        self.privacy_mode_check = QCheckBox()
-        self.privacy_mode_check.setToolTip("Blur or pixelate faces in the display")
-        visual_layout.addRow("Privacy Mode:", self.privacy_mode_check)
+        # self.privacy_mode_check = QCheckBox()
+        # self.privacy_mode_check.setToolTip("Blur or pixelate faces in the display")
+        # visual_layout.addRow("Privacy Mode:", self.privacy_mode_check)
         
-        visual_group.setLayout(visual_layout)
+        # visual_group.setLayout(visual_layout)
         
         # Add all groups to tab layout
         layout.addWidget(model_group)
         layout.addWidget(threshold_group)
-        layout.addWidget(visual_group)
+        # layout.addWidget(visual_group)
         layout.addStretch(1)
         
         tab.setLayout(layout)
@@ -511,7 +511,7 @@ class SettingsPanel(QWidget):
         self.debounce_spin.setValue(self.config_manager.get("debounce_time", 1.0))
         self.detection_delay_spin.setValue(self.config_manager.get("detection_delay", 0.2))
         #self.show_detection_check.setChecked(self.config_manager.get("show_detection_visualization", True))
-        self.privacy_mode_check.setChecked(self.config_manager.get("privacy_mode", False))
+        # self.privacy_mode_check.setChecked(self.config_manager.get("privacy_mode", False))
         
         # Alert tab
         self.alert_text_edit.setText(self.config_manager.get("alert_text", "EYES OFF!!!"))
@@ -696,8 +696,8 @@ class SettingsPanel(QWidget):
         settings["face_threshold"] = self.face_threshold_spin.value()
         settings["debounce_time"] = self.debounce_spin.value()
         settings["detection_delay"] = self.detection_delay_spin.value()
-        #settings["show_detection_visualization"] = self.show_detection_check.isChecked()
-        settings["privacy_mode"] = self.privacy_mode_check.isChecked()
+        # settings["show_detection_visualization"] = self.show_detection_check.isChecked()
+        # settings["privacy_mode"] = self.privacy_mode_check.isChecked()
         
         # Alert tab
         settings["alert_on"] = self.alert_on_check.isChecked()
