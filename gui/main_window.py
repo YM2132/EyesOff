@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 from core.detector import FaceDetector
 from core.manager import DetectionManagerThread
 from core.webcam import WebcamManager
+from core.update_checker import UpdateManagerThread
 from gui.alert import AlertDialog
 from gui.settings import SettingsPanel
 from gui.webcam_view import WebcamView
@@ -35,6 +36,7 @@ class MainWindow(QMainWindow):
         self.webcam_manager = None
         self.face_detector = None
         self.detection_thread = None
+        self.update_manager = None
         
         # Frame processing timer
         self.frame_timer = None
@@ -226,6 +228,8 @@ class MainWindow(QMainWindow):
                 model_path=self.config_manager.get("model_path", ""),
                 confidence_threshold=self.config_manager.get("confidence_threshold", 0.5)
             )
+
+            print(f'MODEL PATH: {self.config_manager.get("model_path", "")}')
             
             # Connect signals
             self.face_detector.signals.detection_ready.connect(self.webcam_view.update_detection)
@@ -242,6 +246,15 @@ class MainWindow(QMainWindow):
             self.detection_thread.signals.dismiss_alert.connect(self._on_dismiss_alert)
             # Connect a signal to take a screenshot of screen when we show alert
             self.detection_thread.signals.show_alert.connect(self._capture_webcam_on_alert)
+
+            # Create Update Checker
+            #self.update_manager = UpdateManagerThread()
+            # Check for update on startup
+            #self.update_manager.start()
+
+            # TODO - Connect update checker signal
+            #self.update_manager.signals.update_available(...)
+            #self.update_manager.signals.update_details(...)
             
             # Create frame processing timer
             self.frame_timer = QTimer(self)
@@ -286,7 +299,7 @@ class MainWindow(QMainWindow):
                 return
             
             # Start detection thread
-            self.detection_thread.start()
+            self.detection_thread.start()  # .start() is an inherited method from the QThread class, it calls the run function in a Qthread
             
             # Start frame processing timer
             self.frame_timer.start(30)  # Process frames every 30ms (~33 fps)

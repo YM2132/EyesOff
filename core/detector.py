@@ -8,6 +8,8 @@ from PyQt5.QtCore import QObject, pyqtSignal
 # from mediapipe_detector import MediapipeDetector
 from yunet_detector import YuNetDetector
 
+from utils.resource_path import resource_path
+
 
 class FaceDetectorSignals(QObject):
     """Signals for the face detector."""
@@ -126,7 +128,7 @@ class FaceDetector:
         # For now, we'll return only the implemented models
         return {
             "yunet": [
-                "./models/face_detection_yunet_2023mar.onnx"
+                f"{resource_path('models/face_detection_yunet_2023mar.onnx')}"
             ],
             # Additional detector types can be added here in the future
             # Example:
