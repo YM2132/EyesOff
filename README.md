@@ -1,6 +1,6 @@
 # EyesOff Privacy Monitor
 
-EyesOff is a privacy protection application that monitors your webcam for unauthorized viewers and displays an alert when someone else is looking at your screen.
+EyesOff is a privacy protection application that uses your webcam to monitor for unauthorized viewers, notifying you when someone else looks at your screen.
 
 ![EyesOff Screenshot](https://github.com/user-attachments/assets/7e45274e-b5c1-44a4-9908-89d10b0100a0)
 
@@ -8,8 +8,7 @@ EyesOff is a privacy protection application that monitors your webcam for unauth
 ## Features
 
 - **Privacy Protection**: Alerts when unauthorized viewers are detected looking at your screen
-- **Real-time Face Detection**: Uses YuNet for efficient face detection with support for additional models
-- **Customizable Alerts**: Configure alert appearance, position, and behavior
+- **Real-time Face Detection**: Uses YuNet for efficient (local) face detection with support for additional models
 
 ## Quick Start
 
@@ -58,25 +57,6 @@ The application consists of two key components:
 - **Webcam View**: Real-time display with detection visualization
 - **Settings Panel**: Configurable options organized in tabs
 - **Alert Dialog**: Customizable alerts with animations and sound
-
-## Directory Structure
-
-```
-eyesoff/
-├── core/               # Core functionality
-│   ├── webcam.py       # Webcam management with PyQt signals
-│   ├── detector.py     # Face detector wrapper with PyQt signals
-│   └── manager.py      # Detection manager running in a separate thread
-├── gui/                # GUI components
-│   ├── main_window.py  # Main application window
-│   ├── webcam_view.py  # Webcam display widget
-│   ├── settings.py     # Settings panel implementation
-│   ├── alert.py        # Alert dialog implementation
-│   └── resources/      # Resources for the GUI
-├── utils/              # Utility modules
-├── gui_main.py         # GUI application entry point
-└── main.py             # Command-line application entry point
-```
 
 ## Extending EyesOff
 
