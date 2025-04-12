@@ -12,10 +12,11 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 from core.detector import FaceDetector
 from core.manager import DetectionManagerThread
 from core.webcam import WebcamManager
-from core.update_checker import UpdateManagerThread
+from core.update_checker import UpdateManager
 from gui.alert import AlertDialog
 from gui.settings import SettingsPanel
 from gui.webcam_view import WebcamView
+from gui.update_view import UpdateView
 from utils.config import ConfigManager
 
 
@@ -111,6 +112,9 @@ class MainWindow(QMainWindow):
         
         # Set window position
         self._center_window()
+
+        # Create update view
+        # self.update_view = UpdateView()
     
     def _create_menus(self):
         """Create application menus."""
@@ -229,8 +233,6 @@ class MainWindow(QMainWindow):
                 confidence_threshold=self.config_manager.get("confidence_threshold", 0.5)
             )
 
-            print(f'MODEL PATH: {self.config_manager.get("model_path", "")}')
-            
             # Connect signals
             self.face_detector.signals.detection_ready.connect(self.webcam_view.update_detection)
             self.face_detector.signals.error_occurred.connect(self._handle_error)
@@ -247,15 +249,13 @@ class MainWindow(QMainWindow):
             # Connect a signal to take a screenshot of screen when we show alert
             self.detection_thread.signals.show_alert.connect(self._capture_webcam_on_alert)
 
-            # Create Update Checker
-            #self.update_manager = UpdateManagerThread()
-            # Check for update on startup
-            #self.update_manager.start()
+            #Init Update Manager
+            self.update_manager = UpdateManager(self)
+            QTimer.singleShot(3000, self.update_manager.start)
 
-            # TODO - Connect update checker signal
-            #self.update_manager.signals.update_available(...)
-            #self.update_manager.signals.update_details(...)
-            
+            # Connect update signals
+            self.update_manager.thread.update_available.connect(self._show_update_dialog)
+
             # Create frame processing timer
             self.frame_timer = QTimer(self)
             self.frame_timer.timeout.connect(self._process_frame)
@@ -800,3 +800,36 @@ class MainWindow(QMainWindow):
         self.webcam_view.webcam_label.setFixedSize(new_width, new_height)
 
         print(f"Resized webcam view to {new_width}x{new_height} (container: {container_width}x{container_height})")
+
+    # Update View
+    def _show_update_dialog(self, new_version):
+        """Show update dialog when a new version is available."""
+        current_version = self.config_manager.get("app_version", "1.0.0")
+
+        # Create the update view with version information
+        self.update_view = UpdateView(current_version, new_version, self)
+
+        # Connect to update signals
+        self.update_view.update_accepted.connect(self._handle_update_accepted)
+        self.update_view.update_declined.connect(self._handle_update_declined)
+
+        # Connect download progress signals
+        self.update_manager.thread.download_progress.connect(self.update_view.update_progress)
+        self.update_manager.thread.download_completed.connect(self.update_view.download_complete)
+
+        # Show the dialog
+        self.update_view.exec_()
+
+    def _handle_update_accepted(self):
+        """Handle when user accepts the update."""
+
+        self.update_manager.thread.start_download.emit()
+
+        print('HANDLING UPDATE ACCEPTED')
+
+    def _handle_update_declined(self):
+        """Handle when user declines the update."""
+        # Just log to status bar
+        self.statusBar.showMessage("Update declined", 3000)
+        self.update_manager.close_thread()
+        print('HANDLING UPDATE DECLINE- CLOSING THREAD')

@@ -1,6 +1,9 @@
 import os
 import sys
 
+# Define project root once at the module level
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 def resource_path(relative_path):
 	"""Get absolute path to resource, works for dev and for PyInstaller"""
@@ -8,7 +11,7 @@ def resource_path(relative_path):
 		# Running in a bundle
 		base_path = sys._MEIPASS
 	else:
-		# Running in normal Python environment
-		base_path = os.path.dirname(os.path.abspath(__file__))
+		# Just use the project root we defined once
+		base_path = PROJECT_ROOT
 
 	return os.path.join(base_path, relative_path)
