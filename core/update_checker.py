@@ -24,7 +24,7 @@ class UpdateManager(QObject):
         self.repo_name = "Eyes_Off"
 
         # Create the update thread
-        self.thread = UpdateCheckerThread(self.repo_owner, self.repo_name, self.current_version)
+        self.thread = UpdateCheckerThread(self.repo_owner, self.repo_name, self.current_version, self.config_manager)
         # self.thread.finished.connect(self.thread.deleteLater)
 
     def start(self):
@@ -53,12 +53,13 @@ class UpdateCheckerThread(QThread):
     download_progress = pyqtSignal(int)  # Emits progress percentage
     download_completed = pyqtSignal(str)
 
-    def __init__(self, repo_owner, repo_name, current_version):
+    def __init__(self, repo_owner, repo_name, current_version, config_manager):
         super().__init__()
         self.repo_owner = repo_owner
         self.repo_name = repo_name
         self.current_version = current_version
         self.github_api_url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/releases/latest"
+        self.config_manager = config_manager
 
         # Connect the start_download signal to the download method
         self.start_download.connect(self.download_update_dmg)
@@ -113,7 +114,10 @@ class UpdateCheckerThread(QThread):
             # Compare versions
             if self._is_newer_version(latest_version, self.current_version):
                 print(f"Update available: {latest_version}")
-                self.update_available.emit(latest_version)
+                # Set the version to latest version
+                self.config_manager.set("app_version", latest_version)
+
+                #self.update_available.emit(latest_version)
             else:
                 print("No update available")
 
