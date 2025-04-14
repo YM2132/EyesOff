@@ -85,7 +85,7 @@ class ConfigManager:
             "snapshot_path": "~/.eyesoff/snapshots",
 
             # App version
-            "app_version": "0.0.0",
+            "app_version": "0.0.1",
         }
     
     def _load_config(self):
