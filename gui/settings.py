@@ -128,15 +128,15 @@ class SettingsPanel(QWidget):
         self.reset_button = QPushButton("Reset to Defaults")
         self.reset_button.clicked.connect(self._on_reset_clicked)
         
-        self.test_alert_button = QPushButton("Test Alert")
-        self.test_alert_button.clicked.connect(self._on_test_alert_clicked)
+        #self.test_alert_button = QPushButton("Test Alert")
+        #self.test_alert_button.clicked.connect(self._on_test_alert_clicked)
         
         self.apply_button = QPushButton("Apply")
         self.apply_button.clicked.connect(self._on_apply_clicked)
         
         button_layout.addWidget(self.reset_button)
         button_layout.addStretch(1)
-        button_layout.addWidget(self.test_alert_button)
+        #button_layout.addWidget(self.test_alert_button)
         button_layout.addWidget(self.apply_button)
         
         # Add components to main layout
