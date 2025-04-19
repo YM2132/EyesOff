@@ -89,7 +89,7 @@ class MainWindow(QMainWindow):
         # Create settings panel
         self.settings_panel = SettingsPanel(self.config_manager)
         self.settings_panel.settings_changed.connect(self._apply_settings)
-        self.settings_panel.test_alert_requested.connect(self._show_test_alert)
+        # self.settings_panel.test_alert_requested.connect(self._show_test_alert)
 
         # Add widgets to horizontal layout
         main_layout.addWidget(self.webcam_view, 7)  # 70% width
@@ -142,9 +142,9 @@ class MainWindow(QMainWindow):
         settings_menu = self.menuBar().addMenu("&Settings")
         
         # Test alert action
-        test_alert_action = QAction("Test Alert", self)
-        test_alert_action.triggered.connect(self._show_test_alert)
-        settings_menu.addAction(test_alert_action)
+        # test_alert_action = QAction("Test Alert", self)
+        # test_alert_action.triggered.connect(self._show_test_alert)
+        # settings_menu.addAction(test_alert_action)
         
         settings_menu.addSeparator()
         
