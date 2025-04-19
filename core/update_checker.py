@@ -21,7 +21,7 @@ class UpdateManager(QObject):
 
         # GitHub repository information
         self.repo_owner = "YM2132"
-        self.repo_name = "Eyes_Off"
+        self.repo_name = "EyesOff"
 
         # Create the update thread
         self.thread = UpdateCheckerThread(self.repo_owner, self.repo_name, self.current_version, self.config_manager)
