@@ -40,7 +40,6 @@ class ConfigManager:
         Returns:
             Dict: Default configuration settings
         """
-        print(f"CONFIG MODEL PATH: {resource_path('models/face_detection_yunet_2023mar.onnx')}")
         return {
             # Detector settings
             "detector_type": "yunet",
@@ -84,6 +83,9 @@ class ConfigManager:
             # Path to save snapshots
             # TODO - make use of the apps sandbox environment or otherise https://developer.apple.com/documentation/security/app-sandbox
             "snapshot_path": "~/.eyesoff/snapshots",
+
+            # App version
+            "app_version": "0.0.1",
         }
     
     def _load_config(self):

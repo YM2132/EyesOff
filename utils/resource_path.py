@@ -10,8 +10,11 @@ def resource_path(relative_path):
 	if getattr(sys, 'frozen', False):
 		# Running in a bundle
 		base_path = sys._MEIPASS
+		# Print for debugging
+		print(f"Running frozen. Base path: {base_path}")
 	else:
 		# Just use the project root we defined once
 		base_path = PROJECT_ROOT
+		print(f"Running in dev. Base path: {base_path}")
 
 	return os.path.join(base_path, relative_path)
