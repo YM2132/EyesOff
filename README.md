@@ -8,7 +8,7 @@ EyesOff is a privacy protection application that uses your webcam to monitor for
 ## Features
 
 - **Privacy Protection**: Alerts when unauthorized viewers are detected looking at your screen
-- **Real-time Face Detection**: Uses YuNet for efficient (local) face detection with support for additional models
+- **Real-time Face Detection**: Uses YuNet for efficient <b>local</b> face detection with support for additional models
 
 ## Quick Start
 
