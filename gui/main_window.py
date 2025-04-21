@@ -816,6 +816,11 @@ class MainWindow(QMainWindow):
         # Connect download progress signals
         self.update_manager.thread.download_progress.connect(self.update_view.update_progress)
         self.update_manager.thread.download_completed.connect(self.update_view.download_complete)
+        
+        # Connect verification signals
+        self.update_manager.thread.verification_started.connect(self.update_view.show_verification_started)
+        self.update_manager.thread.verification_success.connect(self.update_view.show_verification_success)
+        self.update_manager.thread.verification_failed.connect(self.update_view.show_verification_failed)
 
         # Show the dialog
         self.update_view.exec_()
@@ -825,7 +830,7 @@ class MainWindow(QMainWindow):
 
         self.update_manager.thread.start_download.emit()
 
-        print('HANDLING UPDATE ACCEPTED')
+        print('HANDLING UPDATE ACCEPTED BY USER')
 
     def _handle_update_declined(self):
         """Handle when user declines the update."""

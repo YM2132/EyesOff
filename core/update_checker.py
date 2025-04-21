@@ -4,8 +4,10 @@ import sys
 import subprocess
 import tempfile
 import requests
+import hashlib
+import time
 
-from PyQt5.QtCore import QObject, QThread, QEventLoop, QUrl, pyqtSignal
+from PyQt5.QtCore import QObject, QThread, QEventLoop, QUrl, pyqtSignal, QCoreApplication
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
 
 from utils.config import ConfigManager
@@ -40,6 +42,47 @@ class UpdateManager(QObject):
             self.thread.wait()  # Wait for the thread to finish
             # Now it's safe to delete later
             self.thread.deleteLater()
+            
+    @staticmethod
+    def generate_checksum_file(file_path, output_dir=None):
+        """
+        Generate a SHA-256 checksum file for a given file.
+        Used during the release process to create checksum files.
+        
+        Args:
+            file_path: Path to the file to generate checksum for
+            output_dir: Directory to save the checksum file in (defaults to same as file)
+            
+        Returns:
+            Path to the generated checksum file
+        """
+        try:
+            # Calculate SHA-256 checksum
+            with open(file_path, 'rb') as f:
+                file_data = f.read()
+                checksum = hashlib.sha256(file_data).hexdigest()
+            
+            # Determine filename and output path
+            base_name = os.path.basename(file_path)
+            if output_dir is None:
+                output_dir = os.path.dirname(file_path)
+            
+            # Create output filename (remove extension and add .checksum)
+            name_without_ext = os.path.splitext(base_name)[0]
+            checksum_filename = f"{name_without_ext}.checksum"
+            output_path = os.path.join(output_dir, checksum_filename)
+            
+            # Write checksum to file
+            with open(output_path, 'w') as f:
+                f.write(checksum)
+                
+            print(f"Checksum file created: {output_path}")
+            print(f"SHA-256: {checksum}")
+            
+            return output_path
+        except Exception as e:
+            print(f"Error generating checksum file: {e}")
+            return None
 
 
 class UpdateCheckerThread(QThread):
@@ -52,6 +95,10 @@ class UpdateCheckerThread(QThread):
     # Download progress signal
     download_progress = pyqtSignal(int)  # Emits progress percentage
     download_completed = pyqtSignal(str)
+    # Verification signals
+    verification_started = pyqtSignal()
+    verification_success = pyqtSignal(str, str, str)
+    verification_failed = pyqtSignal(str)
 
     def __init__(self, repo_owner, repo_name, current_version, config_manager):
         super().__init__()
@@ -60,6 +107,7 @@ class UpdateCheckerThread(QThread):
         self.current_version = current_version
         self.github_api_url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/releases/latest"
         self.config_manager = config_manager
+        self.latest_version = None
 
         # Connect the start_download signal to the download method
         self.start_download.connect(self.download_update_dmg)
@@ -109,6 +157,7 @@ class UpdateCheckerThread(QThread):
 
             # Remove 'v' prefix if present
             latest_version = name[1:] if name.startswith('v') else name
+            self.latest_version = latest_version
             print(f"Latest version from GitHub: {latest_version}")
 
             # Compare versions
@@ -117,7 +166,7 @@ class UpdateCheckerThread(QThread):
                 # Set the version to latest version
                 self.config_manager.set("app_version", latest_version)
 
-                #self.update_available.emit(latest_version)
+                self.update_available.emit(latest_version)
             else:
                 print("No update available")
 
@@ -208,15 +257,64 @@ class UpdateCheckerThread(QThread):
                                 last_progress = current_progress
                                 print(f"Download progress: {current_progress}%")
 
+                                # Process events to allow UI updates
+                                QCoreApplication.processEvents()
+
             print(f"Download completed successfully. File saved to: {file_path}")
 
-            # 5. Open the DMG file
+            # 5. Verify the downloaded file
+            self.verification_started.emit()
+            print("Starting verification of downloaded file...")
+            
+            # Extract expected checksum from release info if available
+            expected_checksum = None
+            for asset in release_info.get('assets', []):
+                #if asset.get('name') == f"EyesOff-{self.latest_version}.checksum":
+                if asset.get('name') == f"EyesOff.checksum":
+                    checksum_url = asset.get('browser_download_url')
+                    try:
+                        checksum_response = requests.get(checksum_url)
+                        checksum_response.raise_for_status()
+                        expected_checksum = checksum_response.text.strip()
+                        print(f"Found checksum file with expected value: {expected_checksum}")
+                    except Exception as e:
+                        print(f"Error downloading checksum: {e}")
+            
+            # Calculate actual checksum
+            try:
+                with open(file_path, 'rb') as f:
+                    file_data = f.read()
+                    actual_checksum = hashlib.sha256(file_data).hexdigest()
+                print(f"Calculated checksum: {actual_checksum}")
+                
+                # Compare checksums if we have an expected value
+                if expected_checksum:
+                    if actual_checksum.lower() == expected_checksum.lower():
+                        print("Verification successful: Checksum matches")
+                        self.verification_success.emit(file_path, actual_checksum, expected_checksum)
+                    else:
+                        error_msg = f"Verification failed: Checksum mismatch. Expected: {expected_checksum}, Got: {actual_checksum}"
+                        print(error_msg)
+                        self.verification_failed.emit(error_msg)
+                        # Remove the compromised file
+                        os.remove(file_path)
+                        return None
+                else:
+                    # If no checksum available, still emit success but with a warning
+                    print("Warning: No checksum available for verification")
+                    self.verification_failed.emit("Verification failed: No checksum available for verification")
+            except Exception as e:
+                error_msg = f"Verification error: {e}"
+                print(error_msg)
+                self.verification_failed.emit(error_msg)
+                return None
+                
+            # 6. If verification passed, emit completion signal
             if os.path.exists(file_path):
                 if sys.platform == "darwin":  # macOS
-                    # Instead of directly opening the DMG, just emit completion signal
                     # The UI will handle showing instructions and opening the file when ready
                     self.download_completed.emit(file_path)
-                    print("Download completed. Ready for installation.")
+                    print("Download verified and ready for installation.")
                 else:
                     print(f"Automatic installation not supported on {sys.platform}")
                     self.download_completed.emit(file_path)  # Still emit signal for UI update
