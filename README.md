@@ -4,8 +4,6 @@ EyesOff is a privacy protection application that uses your webcam to monitor for
 
 ![EyesOff Screenshot](https://github.com/user-attachments/assets/7e45274e-b5c1-44a4-9908-89d10b0100a0)
 
-![EyesOff Demo](https://www.eyesoff.app/images/demo.gif)
-
 ## Features
 
 - **Privacy Protection**: Alerts when unauthorized viewers are detected looking at your screen
