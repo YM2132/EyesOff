@@ -4,7 +4,7 @@ jaraco.context==6.0.1
 jaraco.functools==4.1.0
 jaraco.text==4.0.0
 more-itertools==10.6.0
-numpy==1.21.6
+numpy==1.24.0
 opencv-python==4.11.0.86
 pip==24.3.1
 PyQt5==5.15.11
