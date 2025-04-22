@@ -164,7 +164,7 @@ class UpdateCheckerThread(QThread):
             if self._is_newer_version(latest_version, self.current_version):
                 print(f"Update available: {latest_version}")
                 # Set the version to latest version
-                self.config_manager.set("app_version", latest_version)
+                # self.config_manager.set("app_version", latest_version)
 
                 self.update_available.emit(latest_version)
             else:
@@ -292,6 +292,8 @@ class UpdateCheckerThread(QThread):
                     if actual_checksum.lower() == expected_checksum.lower():
                         print("Verification successful: Checksum matches")
                         self.verification_success.emit(file_path, actual_checksum, expected_checksum)
+                        # Set the version to latest version
+                        self.config_manager.set("app_version", self.latest_version)
                     else:
                         error_msg = f"Verification failed: Checksum mismatch. Expected: {expected_checksum}, Got: {actual_checksum}"
                         print(error_msg)
