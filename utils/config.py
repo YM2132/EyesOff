@@ -5,6 +5,7 @@ from typing import Dict, Any, Optional
 from PyQt5.QtCore import QSettings
 
 from utils.resource_path import resource_path
+from utils.get_sandbox_funcs import get_config_path, get_snapshots_dir
 
 
 class ConfigManager:
@@ -22,7 +23,8 @@ class ConfigManager:
             application: Application name for QSettings
         """
         self.settings = QSettings(organization, application)
-        self.config_file = os.path.expanduser("~/.eyesoff/config.json")
+        #self.config_file = os.path.expanduser("~/.eyesoff/config.json")
+        self.config_file = get_config_path()
         self.default_config = self._get_default_config()
         self.current_config = self.default_config.copy()
         
@@ -82,7 +84,8 @@ class ConfigManager:
 
             # Path to save snapshots
             # TODO - make use of the apps sandbox environment or otherise https://developer.apple.com/documentation/security/app-sandbox
-            "snapshot_path": "~/.eyesoff/snapshots",
+            #"snapshot_path": "~/.eyesoff/snapshots",
+            "snapshot_path": f"{get_snapshots_dir()}",
 
             # App version
             "app_version": "1.0.1",
