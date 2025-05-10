@@ -7,6 +7,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 # Import the existing detector implementations
 # from mediapipe_detector import MediapipeDetector
 from yunet_detector import YuNetDetector
+from yunet_and_eye_contact_detector import GazeDetector
 
 from utils.resource_path import resource_path
 
@@ -24,7 +25,8 @@ class FaceDetector:
     Face detector with PyQt signal integration.
     """
     
-    def __init__(self, detector_type: str, model_path: str, confidence_threshold: float = 0.5):
+    def __init__(self, detector_type: str, model_path: str, confidence_threshold: float = 0.5,
+                 gaze_model_path: str = None, gaze_threshold: float = 0.4):
         """
         Initialize the face detector.
         
@@ -38,6 +40,10 @@ class FaceDetector:
         self.confidence_threshold = confidence_threshold
         self.detector = None
         self.signals = FaceDetectorSignals()
+
+        # Gaze detection settings
+        self.gaze_model_path = gaze_model_path
+        self.gaze_threshold = gaze_threshold
         
         # Create the appropriate detector
         self._create_detector()
@@ -47,6 +53,17 @@ class FaceDetector:
         try:
             if self.detector_type.lower() == 'yunet':
                 self.detector = YuNetDetector(self.model_path, self.confidence_threshold)
+            elif self.detector_type.lower() == 'gaze':
+                # The GazeDetector needs both a face model and a gaze model
+                yunet_model_path = self.model_path  # This is the face model path
+                gaze_model_path = resource_path('models/gaze_int8_fc.onnx')  # TODO how to bring this into config settings? We dont want to load the model directly here it should be handled by config and user dropdown
+
+                self.detector = GazeDetector(
+                    yunet_model_path=yunet_model_path,
+                    gaze_model_path=gaze_model_path,
+                    confidence_threshold=self.confidence_threshold,
+                    gaze_threshold=self.gaze_threshold
+                )
             else:
                 raise ValueError(f"Unsupported detector type: {self.detector_type}")
         except Exception as e:
@@ -130,6 +147,9 @@ class FaceDetector:
             "yunet": [
                 f"{resource_path('models/face_detection_yunet_2023mar.onnx')}"
             ],
+            "gaze": [
+                f"{resource_path('models/face_detection_yunet_2023mar.onnx')}"
+            ]
             # Additional detector types can be added here in the future
             # Example:
             # "new_detector": [

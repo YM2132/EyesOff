@@ -302,6 +302,7 @@ class MainWindow(QMainWindow):
             self.detection_thread.start()  # .start() is an inherited method from the QThread class, it calls the run function in a Qthread
             
             # Start frame processing timer
+            # TODO: increase this? https://chatgpt.com/share/681f55ed-8ab4-800d-99f4-800a6a2c6abd
             self.frame_timer.start(30)  # Process frames every 30ms (~33 fps)
             
             # Update state and UI
