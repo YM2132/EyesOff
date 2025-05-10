@@ -27,7 +27,8 @@ class GazeDetector:
 				 gaze_threshold: float = 0.6,
 				 nms_threshold: float = 0.3,
 				 top_k: int = 2500,
-				 frame_skip: int = 20,
+				 face_frame_skip: int = 2,  # Run face detection more frequently
+				 gaze_frame_skip: int = 30,  # Run gaze analysis less frequently
 				 use_onnx: bool = True):
 		"""
 		Initialize the gaze detector.
@@ -45,9 +46,19 @@ class GazeDetector:
 		self.confidence_threshold = confidence_threshold
 		self.gaze_threshold = gaze_threshold
 		self.target_size = 340
-		self.frame_skip = frame_skip
 		self.use_onnx = use_onnx
 		self.frame_count = 0
+
+		# Separate counters for face and gaze processing
+		self.face_frame_skip = face_frame_skip
+		self.gaze_frame_skip = gaze_frame_skip
+		self.frame_count = 0
+
+		# Simple caches for faces and scores
+		self.current_bboxes = []  # Current face bounding boxes
+		self.current_scores = []  # Current gaze scores
+		self.looking_bboxes = []  # Current looking faces
+
 		self.last_bboxes = []
 		self.last_scores = []
 		self.last_looking_bboxes = []
@@ -107,31 +118,16 @@ class GazeDetector:
 			self.input_name = self.ort_session.get_inputs()[0].name
 
 	def detect(self, frame: np.ndarray) -> Tuple[int, List[Tuple[int, int, int, int]], np.ndarray]:
-		"""
-		Detect faces and determine if they're looking at the screen.
-
-		Args:
-			frame: Input image frame
-
-		Returns:
-			Tuple containing:
-				- Number of faces looking at the screen
-				- List of looking faces' bounding boxes [x, y, width, height]
-				- Annotated frame with gaze visualizations
-		"""
+		"""Detect faces and determine if they're looking at the screen."""
 		# Increment frame counter
 		self.frame_count += 1
 
-		# Process frame conditionally to improve performance
-		should_process = (self.frame_count % self.frame_skip == 0)
+		# Step 1: Run face detection on a more frequent schedule
+		should_run_face_detection = (self.frame_count % self.face_frame_skip == 0)
+		should_run_gaze_detection = (self.frame_count % self.gaze_frame_skip == 0)
 
-		# print('RUNNING DETECTION')
-
-		# print(f'should_process: {should_process}')
-		# print(f'frame count: {self.frame_count}')
-
-		if should_process:
-			# First detect faces with YuNet
+		if should_run_face_detection:
+			# Run YuNet face detection
 			h, w = frame.shape[:2]
 			scale_factor = self.target_size / max(h, w)
 			new_w = int(w * scale_factor)
@@ -142,11 +138,6 @@ class GazeDetector:
 			self.detector.setInputSize([new_w, new_h])
 			detections = self.detector.infer(resized)
 
-			# Prepare variables for results
-			bboxes = []
-			face_bboxes_format = []  # Format for the gaze model: [left, top, right, bottom]
-			gaze_scores = []
-
 			# Process detections
 			if detections.shape[0] > 0:
 				# Scale factor to convert back to original size
@@ -155,7 +146,10 @@ class GazeDetector:
 				# For visualization, create a compatible detection result format
 				detection_result = self._prepare_visualization_data(detections, frame, inverse_scale)
 
-				# Process each face detection
+				# Extract bounding boxes
+				new_bboxes = []
+				face_bboxes_format = []  # Format for gaze model: [left, top, right, bottom]
+
 				for det in detections:
 					if det[-1] >= self.confidence_threshold:  # Check confidence
 						# Scale back to original coordinates
@@ -171,18 +165,23 @@ class GazeDetector:
 						bottom = min(h, int(y + height + height * 0.2))
 
 						# Store both formats
-						bboxes.append((x, y, width, height))
+						new_bboxes.append((x, y, width, height))
 						face_bboxes_format.append([left, top, right, bottom])
 
-				# Process faces with gaze model if faces were detected
-				if face_bboxes_format:
-					# Prepare image for PIL processing
+				# Update current bboxes
+				self.current_bboxes = new_bboxes
+
+				# Step 2: If it's time, also run gaze detection
+				if should_run_gaze_detection and new_bboxes:
+					# Reset scores for new detection
+					self.current_scores = []
+					self.looking_bboxes = []
+
+					# Convert frame for PIL
 					frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 					frame_pil = Image.fromarray(frame_rgb)
 
-					looking_bboxes = []
-
-					# Process each face
+					# Process each face with gaze model
 					for i, bbox in enumerate(face_bboxes_format):
 						try:
 							# Extract face region
@@ -190,58 +189,39 @@ class GazeDetector:
 
 							# Get gaze score
 							score = self._detect_gaze(face)
-							gaze_scores.append(score)
+							self.current_scores.append(score)
 
 							# If score is above threshold, add to looking faces
 							if score >= self.gaze_threshold:
-								looking_bboxes.append(bboxes[i])
+								self.looking_bboxes.append(new_bboxes[i])
 
 						except Exception as e:
 							print(f"Error processing face for gaze: {e}")
-							gaze_scores.append(0.5)  # Default score if processing fails
+							self.current_scores.append(0.5)  # Default score if processing fails
 
-					# Create annotated frame
-					annotated_frame = self._visualize_gaze(frame, face_bboxes_format, gaze_scores)
+				# If we updated faces but didn't run gaze detection, we need to adjust scores array
+				elif new_bboxes:
+					# If number of faces changed, reset scores
+					if len(new_bboxes) != len(self.current_scores):
+						self.current_scores = [0.5] * len(new_bboxes)
+						self.looking_bboxes = []
+			else:
+				# No faces found
+				self.current_bboxes = []
+				self.current_scores = []
+				self.looking_bboxes = []
 
-					# Store results for future frames
-					self.last_bboxes = bboxes.copy()
-					self.last_scores = gaze_scores.copy()
-					self.last_looking_bboxes = looking_bboxes.copy()
+				# Create empty detection result for visualization
+				detection_result = type('', (), {'detections': []})()
 
-					return len(looking_bboxes), looking_bboxes, annotated_frame
+				# Return immediately with no faces
+				annotated_frame = self._visualize(frame, detection_result)
+				return 0, [], annotated_frame
 
-			# Empty detection result - no faces found
-			self.last_bboxes = []
-			self.last_scores = []
-			self.last_looking_bboxes = []
+		# Create annotated frame with current bboxes and scores
+		annotated_frame = self._visualize_gaze(frame, self.current_bboxes, self.current_scores)
 
-			# Create empty detection result for visualization
-			detection_result = type('', (), {'detections': []})()
-
-			# For consistency with YuNetDetector
-			annotated_frame = self._visualize(frame, detection_result)
-
-			return 0, [], annotated_frame
-
-		else:
-			# Use cached results from last processed frame
-			frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-			frame_pil = Image.fromarray(frame_rgb)
-
-			# Convert to face_bboxes_format for visualization
-			face_bboxes_format = []
-			for bbox in self.last_bboxes:
-				x, y, w, h = bbox
-				left = max(0, int(x - w * 0.2))
-				right = min(frame.shape[1], int(x + w + w * 0.2))
-				top = max(0, int(y - h * 0.2))
-				bottom = min(frame.shape[0], int(y + h + h * 0.2))
-				face_bboxes_format.append([left, top, right, bottom])
-
-			# Create annotated frame using cached results
-			annotated_frame = self._visualize_gaze(frame, face_bboxes_format, self.last_scores)
-
-			return len(self.last_looking_bboxes), self.last_looking_bboxes, annotated_frame
+		return len(self.looking_bboxes), self.looking_bboxes, annotated_frame
 
 	def _detect_gaze(self, face_image):
 		"""
@@ -276,17 +256,7 @@ class GazeDetector:
 		return score
 
 	def _visualize_gaze(self, frame, bboxes, scores):
-		"""
-		Create visualization with gaze information.
-
-		Args:
-			frame: Original input frame
-			bboxes: List of face bounding boxes [left, top, right, bottom]
-			scores: List of gaze scores
-
-		Returns:
-			Frame with visualization
-		"""
+		"""Create visualization with gaze information."""
 		# Convert to PIL for drawing
 		frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 		frame_pil = Image.fromarray(frame_rgb)
@@ -297,16 +267,17 @@ class GazeDetector:
 			if i < len(scores):
 				score = scores[i]
 
-				# Determine color based on score (red to green)
+				# Determine color based on score (green to red)
 				coloridx = 9 - min(int(round(score * 10)), 9)
 
-				# Draw rectangle with color based on score
-				self._drawrect(draw, [(bbox[0], bbox[1]), (bbox[2], bbox[3])],
+				# Draw rectangle
+				x, y, w, h = bbox
+				self._drawrect(draw, [(x, y), (x + w, y + h)],
 							   outline=self.colors[coloridx].hex, width=5)
 
 				# Add text with score
 				label = f"Looking: {score:.2f}"
-				draw.text((bbox[0], bbox[3]), label, fill=(255, 255, 255, 128), font=self.font)
+				draw.text((x, y + h), label, fill=(255, 255, 255, 128), font=self.font)
 
 		# Convert back to OpenCV
 		result = np.array(frame_pil)
