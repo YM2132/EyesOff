@@ -1,41 +1,45 @@
-DUAL LICENSE AGREEMENT
+# DUAL LICENSE AGREEMENT
 ====================================================================
-
 This software is available under either of the following licenses, at your option:
-
-1. NON-COMMERCIAL USE - Free license for non-commercial use only
-2. COMMERCIAL USE - Paid license for commercial use
-
+1. FREE LICENSE - Free for non-commercial use only
+2. COMMERCIAL LICENSE - Paid license for commercial use
 ====================================================================
-1. NON-COMMERCIAL LICENSE - Free for non-commercial use:
 
+## 1. FREE LICENSE - Free for non-commercial use:
 Copyright (C) 2025, Yusuf Mohammad All rights reserved.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version, with the following additional restriction:
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
 
-This program may not be used for commercial purposes without obtaining 
-a commercial-use license described in section 2 below.
+- Non-commercial use only
+- Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer
+- Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution
 
-"Commercial purposes" means any activity where monetary compensation is 
-received, directly or indirectly, including but not limited to:
-- Selling products that incorporate or depend on this software
-- Selling services that utilize this software
-- Using this software in an organization's internal operations for business purposes
-- Using this software to provide services to customers or clients
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+"Non-commercial use" means any activity where monetary compensation is not
+received, directly or indirectly. Commercial use requires the commercial license
+described in section 2.
 
 ====================================================================
-2. COMMERCIAL LICENSE - Paid license for commercial use:
 
+## 2. COMMERCIAL LICENSE - Paid license for commercial use:
 For commercial use of this software, a separate commercial license is 
 required. Please contact yusufmohammad@live.com for commercial licensing 
 options and pricing.
 
 The commercial license grants you the right to use this software in 
 commercial products and services without the restrictions of the 
-GNU General Public License.
+non-commercial license.
