@@ -230,7 +230,8 @@ class MainWindow(QMainWindow):
             self.face_detector = FaceDetector(
                 detector_type=self.config_manager.get("detector_type", "yunet"),
                 model_path=self.config_manager.get("model_path", ""),
-                confidence_threshold=self.config_manager.get("confidence_threshold", 0.5)
+                confidence_threshold=self.config_manager.get("confidence_threshold", 0.5),
+                gaze_threshold=self.config_manager.get("gaze_threshold", 0.3)
             )
 
             # Connect signals

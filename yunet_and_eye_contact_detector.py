@@ -5,8 +5,6 @@ from typing import Tuple, List, Optional
 
 import cv2
 import numpy as np
-import torch
-import torch.nn.functional as F
 from torchvision import transforms
 from PIL import Image, ImageDraw, ImageFont
 from colour import Color
@@ -246,44 +244,62 @@ class GazeDetector:
 
 			# Apply sigmoid for final score
 			score = 1.0 / (1.0 + np.exp(-output.item()))
-		else:
-			# PyTorch inference
-			img = img.to(self.device)
-			with torch.no_grad():
-				output = self.torch_model(img)
-			score = F.sigmoid(output).item()
 
 		return score
 
+	# TODO: Combine _visualise and _visualise gaze if both get called
 	def _visualize_gaze(self, frame, bboxes, scores):
-		"""Create visualization with gaze information."""
-		# Convert to PIL for drawing
-		frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-		frame_pil = Image.fromarray(frame_rgb)
-		draw = ImageDraw.Draw(frame_pil)
+		"""
+		Create visualization with gaze information that matches YuNet's style.
+
+		Args:
+			frame: Original input frame
+			bboxes: List of face bounding boxes (x, y, width, height)
+			scores: List of gaze scores
+
+		Returns:
+			Frame with visualization
+		"""
+		# Constants for visualization (match YuNet)
+		MARGIN = 25  # pixels
+		ROW_SIZE = 25  # pixels
+		FONT_SIZE = 3
+		FONT_THICKNESS = 5
+		FACE_TEXT_COLOR = (255, 0, 0)  # Blue (BGR)
+
+		# Make a copy of the frame for drawing
+		annotated_image = frame.copy()
 
 		# Draw each face with gaze score
 		for i, bbox in enumerate(bboxes):
 			if i < len(scores):
+				x, y, w, h = bbox
 				score = scores[i]
 
 				# Determine color based on score (green to red)
 				coloridx = 9 - min(int(round(score * 10)), 9)
 
-				# Draw rectangle
-				x, y, w, h = bbox
-				self._drawrect(draw, [(x, y), (x + w, y + h)],
-							   outline=self.colors[coloridx].hex, width=5)
+				# Convert color from hex to BGR
+				color_rgb = Color(self.colors[coloridx].hex).rgb
+				box_color = (
+					int(color_rgb[2] * 255),  # B
+					int(color_rgb[1] * 255),  # G
+					int(color_rgb[0] * 255)  # R
+				)
 
-				# Add text with score
-				label = f"Looking: {score:.2f}"
-				draw.text((x, y + h), label, fill=(255, 255, 255, 128), font=self.font)
+				# Draw rectangle with OpenCV (not PIL)
+				start_point = (x, y)
+				end_point = (x + w, y + h)
+				cv2.rectangle(annotated_image, start_point, end_point, box_color, 3)
 
-		# Convert back to OpenCV
-		result = np.array(frame_pil)
-		result = cv2.cvtColor(result, cv2.COLOR_RGB2BGR)
+				# Add text with gaze score (same format as YuNet)
+				gaze_text = f"Looking: {score:.2f}"
+				# Place the text at the top of the box (like YuNet)
+				text_location = (MARGIN + x, MARGIN + ROW_SIZE + y)
+				cv2.putText(annotated_image, gaze_text, text_location,
+							cv2.FONT_HERSHEY_PLAIN, FONT_SIZE, FACE_TEXT_COLOR, FONT_THICKNESS)
 
-		return result
+		return annotated_image
 
 	def _drawrect(self, drawcontext, xy, outline=None, width=0):
 		"""Helper to draw a rectangle with specified line width."""
