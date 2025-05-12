@@ -119,10 +119,14 @@ class FaceDetector:
             if 'model_path' in settings and settings['model_path'] != self.model_path:
                 self.model_path = settings['model_path']
                 recreate = True
-                
+
             if 'confidence_threshold' in settings and settings['confidence_threshold'] != self.confidence_threshold:
                 self.confidence_threshold = settings['confidence_threshold']
                 recreate = True
+
+            if 'gaze_threshold' in settings and hasattr(self.detector, 'gaze_threshold'):
+                # Only update if the detector is a gaze detector with this property
+                self.detector.gaze_threshold = settings['gaze_threshold']
             
             if recreate:
                 self._create_detector()
