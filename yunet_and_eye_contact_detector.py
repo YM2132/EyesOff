@@ -5,13 +5,53 @@ from typing import Tuple, List, Optional
 
 import cv2
 import numpy as np
-from torchvision import transforms
 from PIL import Image, ImageDraw, ImageFont
 from colour import Color
 
 from utils.yunet import YuNet
 from utils.resource_path import resource_path
 
+_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+
+def preprocess(image_bgr: np.ndarray, size: int = 224) -> np.ndarray:
+    """
+    Mimics torchvision.Compose([
+        Resize(224), CenterCrop(224), ToTensor(), Normalize(...)
+    ])
+
+    Args
+    ----
+    image_bgr : np.ndarray of shape (H, W, 3) in BGR uint8   (OpenCV default)
+    size      : final square size (default 224)
+
+    Returns
+    -------
+    np.ndarray of shape (3, size, size) – float32, normalised
+    """
+    # 1) Resize so the *shortest* side == `size`, keep aspect ratio
+    h, w = image_bgr.shape[:2]
+    if h < w:
+        new_h, new_w = size, int(w * size / h)
+    else:
+        new_w, new_h = size, int(h * size / w)
+    img = cv2.resize(image_bgr, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+    # 2) Centre-crop to `size` × `size`
+    top  = (new_h - size) // 2
+    left = (new_w - size) // 2
+    img = img[top : top + size, left : left + size]
+
+    # 3) BGR ➜ RGB, uint8 ➜ float32 0-1
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+
+    # 4) C,H,W ordering
+    img = np.transpose(img, (2, 0, 1))   # shape (3, size, size)
+
+    # 5) Normalise with ImageNet statistics
+    img = (img - _MEAN[:, None, None]) / _STD[:, None, None]
+
+    return img
 
 class GazeDetector:
 	"""
@@ -79,12 +119,12 @@ class GazeDetector:
 		self._init_gaze_model()
 
 		# Set up transformations for the gaze model
-		self.transform = transforms.Compose([
-			transforms.Resize(224),
-			transforms.CenterCrop(224),
-			transforms.ToTensor(),
-			transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-		])
+		#self.transform = transforms.Compose([
+	#		transforms.Resize(224),
+	#		transforms.CenterCrop(224),
+	#		transforms.ToTensor(),
+	#		transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+	#	])
 
 		# Visualization settings
 		self.red = Color("red")
@@ -221,7 +261,7 @@ class GazeDetector:
 
 		return len(self.looking_bboxes), self.looking_bboxes, annotated_frame
 
-	def _detect_gaze(self, face_image):
+	def _detect_gaze(self, face_image: Image.Image):
 		"""
 		Detect if a face is looking at the screen.
 
@@ -232,14 +272,21 @@ class GazeDetector:
 			Float score (0-1) indicating probability of looking at screen
 		"""
 		# Apply transformations
-		img = self.transform(face_image)
-		img.unsqueeze_(0)  # Add batch dimension
+		#img = self.transform(face_image)
+		# Convert PIL Image to a ndarray
+		img_bgr = cv2.cvtColor(np.array(face_image), cv2.COLOR_RGB2BGR)
+		print(type(face_image))
+		img = preprocess(img_bgr)
+		print(img.shape)
+		img = np.expand_dims(img, axis=0).astype(np.float32)
+		print(img.shape)
+		#img.unsqueeze_(0)  # Add batch dimension
 
 		# Run inference
 		if self.use_onnx:
 			# ONNX inference
-			img_np = img.numpy()
-			outputs = self.ort_session.run(None, {self.input_name: img_np})
+			# img_np = img.numpy()
+			outputs = self.ort_session.run(None, {self.input_name: img})
 			output = outputs[0]
 
 			# Apply sigmoid for final score
