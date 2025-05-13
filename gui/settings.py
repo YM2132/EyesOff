@@ -102,6 +102,15 @@ class SettingsPanel(QWidget):
         self.config_manager = config_manager
         self.available_models = FaceDetector.get_available_models()
         self.available_cameras = WebcamManager.get_device_list()
+
+        # Define mapping between user-friendly names and internal model types
+        self.MODEL_TYPE_MAPPING = {
+            "Face": "yunet",
+            "Gaze": "gaze"
+        }
+
+        # Reverse mapping (for loading settings)
+        self.REVERSE_MODEL_TYPE_MAPPING = {v: k for k, v in self.MODEL_TYPE_MAPPING.items()}
         
         # Initialize UI
         self._init_ui()
@@ -156,26 +165,39 @@ class SettingsPanel(QWidget):
         layout = QVBoxLayout()
         
         # Model selection group
-        model_group = QGroupBox("Face Detection Model")
+        model_group = QGroupBox("Detection Model")
         model_layout = QFormLayout()
         
         # Model type combo box
         self.model_type_combo = QComboBox()
-        self.model_type_combo.addItems(["yunet", "gaze"])  # Removed moondream as it's not fully developed yet
+        # self.model_type_combo.addItems(["yunet", "gaze"])  # Removed moondream as it's not fully developed yet
+        self.model_type_combo.addItems(list(self.MODEL_TYPE_MAPPING.keys()))
         self.model_type_combo.currentTextChanged.connect(self._on_model_type_changed)
+        self.model_type_combo.setToolTip('"Face" detects only when faces enter the frame | "Gaze" detects when people are looking at your screen')
         model_layout.addRow("Model Type:", self.model_type_combo)
         
         # Model selection combo box
         self.model_path_combo = QComboBox()
         # Will be populated in _on_model_type_changed
         #model_layout.addRow("Model:", self.model_path_combo)
-        
-        # Confidence threshold
-        self.confidence_spin = QDoubleSpinBox()
-        self.confidence_spin.setRange(0.1, 1.0)
-        self.confidence_spin.setSingleStep(0.05)
-        self.confidence_spin.setDecimals(2)
-        model_layout.addRow("Confidence Threshold:", self.confidence_spin)
+
+        # Face confidence threshold
+        self.face_confidence_spin = QDoubleSpinBox()
+        self.face_confidence_spin.setRange(0.1, 1.0)
+        self.face_confidence_spin.setSingleStep(0.05)
+        self.face_confidence_spin.setDecimals(2)
+        self.face_confidence_spin.setValue(0.75)  # Default value
+        self.face_confidence_spin.setToolTip("Minimum confidence threshold for face detection")
+        model_layout.addRow("Face Confidence Threshold:", self.face_confidence_spin)
+
+        # Gaze confidence threshold
+        self.gaze_confidence_spin = QDoubleSpinBox()
+        self.gaze_confidence_spin.setRange(0.1, 1.0)
+        self.gaze_confidence_spin.setSingleStep(0.05)
+        self.gaze_confidence_spin.setDecimals(2)
+        self.gaze_confidence_spin.setValue(0.6)  # Default value
+        self.gaze_confidence_spin.setToolTip("Threshold to determine if someone is looking at the screen")
+        model_layout.addRow("Gaze Confidence Threshold:", self.gaze_confidence_spin)
         
         model_group.setLayout(model_layout)
         
@@ -498,18 +520,27 @@ class SettingsPanel(QWidget):
         """Load settings from configuration manager into UI components."""
         # Detection tab
         detector_type = self.config_manager.get("detector_type", "yunet")
-        self.model_type_combo.setCurrentText(detector_type)
-        self._on_model_type_changed(detector_type)  # Populate model path combo
+        friendly_name = self.REVERSE_MODEL_TYPE_MAPPING.get(detector_type, "Face")
+
+        self.model_type_combo.setCurrentText(friendly_name)
+
+        # Explicitly enable/disable gaze threshold control based on detector type
+        self.gaze_confidence_spin.setEnabled(detector_type == "gaze")
+
+        self._on_model_type_changed(friendly_name)  # Populate model path combo
         
         model_path = self.config_manager.get("model_path", "")
         index = self.model_path_combo.findText(model_path)
         if index >= 0:
             self.model_path_combo.setCurrentIndex(index)
         
-        self.confidence_spin.setValue(self.config_manager.get("confidence_threshold", 0.5))
+        # self.confidence_spin.setValue(self.config_manager.get("confidence_threshold", 0.5))
+        self.face_confidence_spin.setValue(self.config_manager.get("confidence_threshold", 0.75))
         self.face_threshold_spin.setValue(self.config_manager.get("face_threshold", 1))
         self.debounce_spin.setValue(self.config_manager.get("debounce_time", 1.0))
         self.detection_delay_spin.setValue(self.config_manager.get("detection_delay", 0.2))
+        # Load gaze threshold
+        self.gaze_confidence_spin.setValue(self.config_manager.get("gaze_threshold", 0.6))
         #self.show_detection_check.setChecked(self.config_manager.get("show_detection_visualization", True))
         # self.privacy_mode_check.setChecked(self.config_manager.get("privacy_mode", False))
         
@@ -576,14 +607,18 @@ class SettingsPanel(QWidget):
         self.minimize_tray_check.setChecked(self.config_manager.get("minimize_to_tray", True))
         # Add setting for getting the snapshot path
         self.path_edit.setText(self.config_manager.get("snapshot_path", ""))
-    
-    def _on_model_type_changed(self, model_type: str):
+
+    # TODO - should this function only be called upon apply?
+    def _on_model_type_changed(self, user_model_name: str):
         """
         Handle model type change.
         
         Args:
             model_type: New model type
         """
+        # Convert friendly name to internal model type
+        model_type = self.MODEL_TYPE_MAPPING.get(user_model_name, "yunet")  # Default to yunet if not found
+
         # Clear and repopulate model path combo
         self.model_path_combo.clear()
         
@@ -690,9 +725,11 @@ class SettingsPanel(QWidget):
         settings = {}
         
         # Detection tab
-        settings["detector_type"] = self.model_type_combo.currentText()
-        settings["model_path"] = self.model_path_combo.currentText()
-        settings["confidence_threshold"] = self.confidence_spin.value()
+        # settings["detector_type"] = self.model_type_combo.currentText()
+        settings["detector_type"] = self.MODEL_TYPE_MAPPING.get(self.model_type_combo.currentText(), "yunet")
+        settings["model_path"] = self.model_path_combo.currentText()  # This handles what model is actually used?
+        settings["confidence_threshold"] = self.face_confidence_spin.value()
+        settings["gaze_threshold"] = self.gaze_confidence_spin.value()
         settings["face_threshold"] = self.face_threshold_spin.value()
         settings["debounce_time"] = self.debounce_spin.value()
         settings["detection_delay"] = self.detection_delay_spin.value()
@@ -714,6 +751,11 @@ class SettingsPanel(QWidget):
             settings["alert_duration"] = self.alert_duration_spin.value()
         else:
             settings["alert_duration"] = None
+
+        if self.MODEL_TYPE_MAPPING.get(self.model_type_combo.currentText()) == 'gaze':
+            self.gaze_confidence_spin.setEnabled(True)
+        else:
+            self.gaze_confidence_spin.setEnabled(False)
         
         settings["alert_sound_enabled"] = self.alert_sound_check.isChecked()
         settings["alert_sound_file"] = self.alert_sound_edit.text()
