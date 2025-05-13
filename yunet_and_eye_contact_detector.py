@@ -275,12 +275,8 @@ class GazeDetector:
 		#img = self.transform(face_image)
 		# Convert PIL Image to a ndarray
 		img_bgr = cv2.cvtColor(np.array(face_image), cv2.COLOR_RGB2BGR)
-		print(type(face_image))
 		img = preprocess(img_bgr)
-		print(img.shape)
 		img = np.expand_dims(img, axis=0).astype(np.float32)
-		print(img.shape)
-		#img.unsqueeze_(0)  # Add batch dimension
 
 		# Run inference
 		if self.use_onnx:

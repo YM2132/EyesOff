@@ -18,10 +18,18 @@ except ImportError:
 # Try to import notification library for macOS
 if platform.system() == 'Darwin':
     try:
-        import subprocess
+        # Check for native notification support via PyObjC
+        import Foundation
+        import UserNotifications
         NATIVE_NOTIFICATION_SUPPORT = True
     except ImportError:
-        NATIVE_NOTIFICATION_SUPPORT = False
+        try:
+            # Fall back to AppleScript if PyObjC is not available
+            import subprocess
+            NATIVE_NOTIFICATION_SUPPORT = True
+            print("Native notifications using PyObjC not available, falling back to AppleScript")
+        except ImportError:
+            NATIVE_NOTIFICATION_SUPPORT = False
 else:
     NATIVE_NOTIFICATION_SUPPORT = False
 
@@ -106,6 +114,10 @@ class AlertDialog(QDialog):
         # Initialize system tray icon for notifications if parent available
         if parent is not None:
             self._init_tray_icon()
+
+        # Request notification permissions if on macOS
+        if platform.system() == 'Darwin' and NATIVE_NOTIFICATION_SUPPORT:
+            self.request_notification_permissions()
 
     def _init_ui(self):
         """Initialize the UI components."""
@@ -382,9 +394,96 @@ class AlertDialog(QDialog):
                 lambda reason: self.on_notification_clicked() 
                 if reason == QSystemTrayIcon.Trigger else None
             )
-    
+
+    def request_notification_permissions(self):
+        """
+        Request permission to display notifications on macOS
+        """
+        if platform.system() == 'Darwin' and NATIVE_NOTIFICATION_SUPPORT:
+            try:
+                from Foundation import NSDate
+                from UserNotifications import (
+                    UNUserNotificationCenter,
+                    UNAuthorizationOptions
+                )
+
+                # Define options (alert, sound, badge)
+                options = (
+                        UNAuthorizationOptions.UNAuthorizationOptionAlert |
+                        UNAuthorizationOptions.UNAuthorizationOptionSound
+                )
+
+                # Request authorization
+                center = UNUserNotificationCenter.currentNotificationCenter()
+                center.requestAuthorizationWithOptions_completionHandler_(
+                    options,
+                    lambda granted, error: print(f"Notification permission granted: {granted}")
+                )
+            except Exception as e:
+                print(f"Error requesting notification permissions: {e}")
+
+    def _show_macos_notification(self, title, subtitle, body, sound_name=None):
+        """
+        Show a native macOS notification using the UserNotifications framework
+        """
+        if platform.system() != 'Darwin' or not NATIVE_NOTIFICATION_SUPPORT:
+            return
+
+        try:
+            from Foundation import NSDate
+            from UserNotifications import (
+                UNUserNotificationCenter,
+                UNMutableNotificationContent,
+                UNNotificationRequest,
+                UNTimeIntervalNotificationTrigger,
+                UNNotificationSound
+            )
+
+            # Get the notification center
+            center = UNUserNotificationCenter.currentNotificationCenter()
+
+            # Create notification content
+            content = UNMutableNotificationContent.alloc().init()
+            content.setTitle_(title)
+            content.setSubtitle_(subtitle)
+            content.setBody_(body)
+
+            # Set sound if provided
+            if sound_name:
+                content.setSound_(UNNotificationSound.soundNamed_(sound_name))
+
+            # Create a unique identifier for this notification
+            request_id = f"privacy-alert-{NSDate.date().timeIntervalSince1970()}"
+
+            # Create trigger (deliver immediately)
+            trigger = UNTimeIntervalNotificationTrigger.triggerWithTimeInterval_repeats_(0.1, False)
+
+            # Create request
+            request = UNNotificationRequest.requestWithIdentifier_content_trigger_(
+                request_id, content, trigger
+            )
+
+            # Add to notification center
+            center.addNotificationRequest_withCompletionHandler_(request, None)
+        except Exception as e:
+            print(f"Error showing native macOS notification: {e}")
+            # Fall back to AppleScript if PyObjC fails
+            self._show_applescript_notification(title, body, sound_name)
+
+    def _show_applescript_notification(self, title, body, sound_name=None):
+        """Fall back to AppleScript for notifications if PyObjC fails"""
+        try:
+            import subprocess
+            sound_part = f' sound name "{sound_name}"' if sound_name else ""
+            applescript = f'''
+            display notification "{body}" with title "{title}"{sound_part}
+            '''
+            subprocess.run(["osascript", "-e", applescript], check=True)
+        except Exception as e:
+            print(f"Error showing AppleScript notification: {e}")
+
     def _show_native_notification(self):
-        """Show a native system notification."""
+        ''' Show a native system notification. '''
         # Always allow showing notifications in hybrid mode
         
         # Make sure we don't show the popup when showing a notification
@@ -405,8 +504,20 @@ class AlertDialog(QDialog):
                 QSystemTrayIcon.Critical, 
                 500  # Show for 0.5 seconds
             )
+
+        # For macOS, use the native notification API
+        if platform.system() == 'Darwin' and NATIVE_NOTIFICATION_SUPPORT:
+            try:
+                self._show_macos_notification(
+                    title="EyesOff",
+                    subtitle="Privacy Alert",
+                    body="Someone is looking at your screen!",
+                    sound_name="Sosumi"
+                )
+            except Exception as e:
+                print(f"Error showing macOS notification: {e}")
         
-        # For macOS, we can also try using the native notification system via applescript
+        """# For macOS, we can also try using the native notification system via applescript
         # TODO - Switch to Mac native notification API to get greater control or a python lib to show mac notifications
         if platform.system() == 'Darwin' and NATIVE_NOTIFICATION_SUPPORT:
             try:
@@ -416,7 +527,7 @@ class AlertDialog(QDialog):
                 '''
                 subprocess.run(["osascript", "-e", applescript], check=True)
             except Exception as e:
-                print(f"Error showing macOS notification: {e}")
+                print(f"Error showing macOS notification: {e}")"""
                 
         # Set up auto-dismiss for any resources
         if self.alert_duration is not None:
@@ -425,7 +536,7 @@ class AlertDialog(QDialog):
             self.dismiss_timer.timeout.connect(self.close)
             self.dismiss_timer.start(int(self.alert_duration * 1000))
 
-    # TODO - Only shows system notification
+# TODO - Only shows system notification
     @pyqtSlot()
     def test_alert(self):
         """Show a test alert."""
