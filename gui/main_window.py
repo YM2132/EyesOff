@@ -230,7 +230,8 @@ class MainWindow(QMainWindow):
             self.face_detector = FaceDetector(
                 detector_type=self.config_manager.get("detector_type", "yunet"),
                 model_path=self.config_manager.get("model_path", ""),
-                confidence_threshold=self.config_manager.get("confidence_threshold", 0.5)
+                confidence_threshold=self.config_manager.get("confidence_threshold", 0.5),
+                gaze_threshold=self.config_manager.get("gaze_threshold", 0.3)
             )
 
             # Connect signals
@@ -302,6 +303,7 @@ class MainWindow(QMainWindow):
             self.detection_thread.start()  # .start() is an inherited method from the QThread class, it calls the run function in a Qthread
             
             # Start frame processing timer
+            # TODO: increase this? https://chatgpt.com/share/681f55ed-8ab4-800d-99f4-800a6a2c6abd
             self.frame_timer.start(30)  # Process frames every 30ms (~33 fps)
             
             # Update state and UI
