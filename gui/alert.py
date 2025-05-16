@@ -59,7 +59,6 @@ class AlertDialog(QDialog):
                 alert_sound_enabled: bool = False,
                 alert_sound_file: str = "",
                 fullscreen_mode: bool = False,
-                use_native_notifications: bool = False,
                 on_notification_clicked: Optional[Callable] = None, # TODO we should add a callback which opens the app?
                 launch_app_enabled: bool = False,
                 launch_app_path: str = "",):
@@ -98,7 +97,6 @@ class AlertDialog(QDialog):
         self.alert_sound_enabled = alert_sound_enabled
         self.alert_sound_file = alert_sound_file
         self.fullscreen_mode = fullscreen_mode
-        self.use_native_notifications = use_native_notifications
         self.on_notification_clicked = on_notification_clicked
         self.launch_app_enabled = launch_app_enabled
         self.launch_app_path = launch_app_path
@@ -374,21 +372,23 @@ class AlertDialog(QDialog):
                 self.move(x, y)
     
     def closeEvent(self, event):
-        """Handle dialog close event."""
-        # Cancel dismiss timer if active
-        if self.dismiss_timer and self.dismiss_timer.isActive():
-            self.dismiss_timer.stop()
-        
-        # Stop the raise timer if active
-        if hasattr(self, 'raise_timer') and self.raise_timer.isActive():
-            self.raise_timer.stop()
-        
-        # If animations are enabled and not already fading out
-        if self.enable_animations and (not self.fade_animation or not self.fade_animation.state() == QPropertyAnimation.Running):
-            self._fade_out()
-            event.ignore()  # Ignore this close event, will be closed after animation
-        else:
+        # already fading? let Qt close the window for real
+        if getattr(self, "_is_fading", False):
+            self._is_fading = False            # reset guard
+            if hasattr(self, "raise_timer") and self.raise_timer.isActive():
+                self.raise_timer.stop()
             super().closeEvent(event)
+            return
+
+        # start a single fade-out, then really close
+        if self.enable_animations:
+            self._is_fading = True
+            self._fade_out()
+            self.fade_animation.finished.connect(self.close)   # will run branch above
+            event.ignore()
+            return
+
+        super().closeEvent(event)
     
     def _init_tray_icon(self):
         """Initialize system tray icon for notifications."""
@@ -628,7 +628,6 @@ class AlertDialog(QDialog):
                        alert_sound_enabled: Optional[bool] = None,
                        alert_sound_file: Optional[str] = None,
                        fullscreen_mode: Optional[bool] = None,
-                       use_native_notifications: Optional[bool] = None,
                        on_notification_clicked: Optional[Callable] = None,
                        launch_app_enabled: Optional[bool] = None,
                        launch_app_path: Optional[str] = None):
@@ -650,23 +649,25 @@ class AlertDialog(QDialog):
             use_native_notifications: Whether to use native OS notifications
             on_notification_clicked: Callback when notification is clicked
         """
-        # Handle notification mode change first
-        notification_mode_changed = False
-        if use_native_notifications is not None and use_native_notifications != self.use_native_notifications:
-            self.use_native_notifications = use_native_notifications
-            notification_mode_changed = True
-            
-            # If switching to native notifications, we may need to close the dialog
-            if self.use_native_notifications and self.isVisible():
+        # Handle alert_on mode change
+        if alert_on is not None and alert_on != self.alert_on:
+            self.alert_on = alert_on
+
+            # If turning alerts off and the dialog is visible, close it
+            if not alert_on and self.isVisible():
                 self.close()
-                
-            # If switching from native notifications, we need to init UI
-            if not self.use_native_notifications and not hasattr(self, 'title_label'):
+
+            # Make sure UI is initialized if needed (similar to previous logic)
+            if not hasattr(self, 'title_label'):
                 self._init_ui()
-                
-            # Initialize tray icon if needed
-            if self.use_native_notifications and not self.tray_icon and self.parent() is not None:
+
+            # Make sure tray icon is initialized for notifications
+            if not self.tray_icon and self.parent() is not None:
                 self._init_tray_icon()
+
+            # Also update the config manager if available
+            if self.parent() and hasattr(self.parent(), 'config_manager'):
+                self.parent().config_manager.set("alert_on", alert_on)
                 
         # Update callback if provided
         if on_notification_clicked is not None:
@@ -701,54 +702,52 @@ class AlertDialog(QDialog):
             if hasattr(self, 'title_label'):
                 self.title_label.setText(alert_text)
 
-        if not self.use_native_notifications:
-            print('DEBUG: CHANGING ALERT SETTINGS ')
-            if alert_color is not None:
-                self.alert_color = alert_color
-                # Apply color change immediately for visual update
-                r, g, b = self.alert_color[2], self.alert_color[1], self.alert_color[0]
-                palette = self.palette()
-                palette.setColor(QPalette.Window, QColor(r, g, b))
-                self.setPalette(palette)
-                self.setAutoFillBackground(True)
+        if alert_color is not None:
+            self.alert_color = alert_color
+            # Apply color change immediately for visual update
+            r, g, b = self.alert_color[2], self.alert_color[1], self.alert_color[0]
+            palette = self.palette()
+            palette.setColor(QPalette.Window, QColor(r, g, b))
+            self.setPalette(palette)
+            self.setAutoFillBackground(True)
+            if self.isVisible():
+                self.update()  # Force a repaint
+
+        if alert_opacity is not None:
+            self.alert_opacity = alert_opacity
+            if hasattr(self, 'opacity_effect'):
+                self.opacity_effect.setOpacity(alert_opacity)
                 if self.isVisible():
                     self.update()  # Force a repaint
 
-            if alert_opacity is not None:
-                self.alert_opacity = alert_opacity
-                if hasattr(self, 'opacity_effect'):
-                    self.opacity_effect.setOpacity(alert_opacity)
+        if alert_size is not None:
+            self.alert_size = alert_size
+            if not self.fullscreen_mode:  # Only resize if not in fullscreen
+                self.resize(*self.alert_size)
+                self._position_window()
+
+        if alert_position is not None:
+            self.alert_position = alert_position
+            if not self.fullscreen_mode:  # Only reposition if not in fullscreen #TODO: If in fullscreen we should disable the alert_position settings
+                self._position_window()
+
+                # If fullscreen mode changed, we need to recreate the window with new flags
+                if fullscreen_mode is not None and fullscreen_mode != self.fullscreen_mode:
+                    # Update the state variable FIRST before recreating UI
+                    self.fullscreen_mode = fullscreen_mode
+                    print(f"DEBUG: Updating fullscreen mode to {self.fullscreen_mode}")
+
+                    # Close and reopen to apply the new window flags
                     if self.isVisible():
-                        self.update()  # Force a repaint
-
-            if alert_size is not None:
-                self.alert_size = alert_size
-                if not self.fullscreen_mode:  # Only resize if not in fullscreen
-                    self.resize(*self.alert_size)
-                    self._position_window()
-
-            if alert_position is not None:
-                self.alert_position = alert_position
-                if not self.fullscreen_mode:  # Only reposition if not in fullscreen #TODO: If in fullscreen we should disable the alert_position settings
-                    self._position_window()
-
-                    # If fullscreen mode changed, we need to recreate the window with new flags
-                    if fullscreen_mode is not None and fullscreen_mode != self.fullscreen_mode:
-                        # Update the state variable FIRST before recreating UI
-                        self.fullscreen_mode = fullscreen_mode
-                        print(f"DEBUG: Updating fullscreen mode to {self.fullscreen_mode}")
-
-                        # Close and reopen to apply the new window flags
-                        if self.isVisible():
-                            visible = True
-                            self.close()
-                            # Recreate UI with new settings
-                            self._init_ui()
-                            if visible:
-                                self.show()
-                        else:
-                            # Just recreate UI with new settings
-                            self._init_ui()
+                        visible = True
+                        self.close()
+                        # Recreate UI with new settings
+                        self._init_ui()
+                        if visible:
+                            self.show()
+                    else:
+                        # Just recreate UI with new settings
+                        self._init_ui()
 
         if alert_duration is not None:
             self.alert_duration = alert_duration

@@ -349,11 +349,6 @@ class SettingsPanel(QWidget):
         self.fullscreen_check.setToolTip("Display alert in fullscreen mode (covers entire screen)")
         self.behavior_layout.addRow("Fullscreen Alert:", self.fullscreen_check)
         
-        # Native notifications - removing since we're using automatic hybrid approach
-        # We'll keep the setting in the config but hide it from the UI
-        self.native_notifications_check = QCheckBox()
-        self.native_notifications_check.setVisible(False)  # Hide from UI
-        
         # Alert sound
         self.alert_sound_check = QCheckBox()
         self.alert_sound_check.toggled.connect(self._on_alert_sound_toggled)
@@ -631,10 +626,6 @@ class SettingsPanel(QWidget):
             self.width_spin.setValue(frame_width)
             self.height_spin.setValue(frame_height)
         
-        # Set native notifications to true by default for the hybrid approach
-        self.native_notifications_check.setChecked(True)
-        self.config_manager.set("use_native_notifications", True)
-        
         # App tab
         self.start_boot_check.setChecked(self.config_manager.get("start_on_boot", False))
         self.start_minimized_check.setChecked(self.config_manager.get("start_minimized", False))
@@ -848,7 +839,6 @@ class SettingsPanel(QWidget):
         settings["alert_position"] = self.alert_position_combo.currentText()
         settings["enable_animations"] = self.animations_check.isChecked()
         settings["fullscreen_mode"] = self.fullscreen_check.isChecked()
-        settings["use_native_notifications"] = self.native_notifications_check.isChecked()
         # App launch settings
         # App launch settings
         settings["launch_app_enabled"] = self.launch_app_check.isChecked()

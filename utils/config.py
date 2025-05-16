@@ -67,6 +67,9 @@ class ConfigManager:
             "alert_sound_file": "",
             "alert_text": "EYES OFF!!!",
             "fullscreen_mode": False,  # Whether to show alert in fullscreen
+            # app launch alert setting
+            "launch_app_enabled": False,
+            "launch_app_path": "",
             
             # Application settings
             "debounce_time": 1.0,
