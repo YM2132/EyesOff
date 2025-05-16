@@ -281,7 +281,6 @@ class MainWindow(QMainWindow):
             alert_sound_enabled=self.config_manager.get("alert_sound_enabled", False),
             alert_sound_file=self.config_manager.get("alert_sound_file", ""),
             fullscreen_mode=self.config_manager.get("fullscreen_mode", False),
-            use_native_notifications=self.config_manager.get("use_native_notifications", False),
             launch_app_enabled=self.config_manager.get("launch_app_enabled", False),
             launch_app_path=self.config_manager.get("launch_app_path", ""),
             on_notification_clicked=self.show
@@ -462,8 +461,6 @@ class MainWindow(QMainWindow):
                     alert_settings['alert_sound_file'] = settings['alert_sound_file']
                 if 'fullscreen_mode' in settings:
                     alert_settings['fullscreen_mode'] = settings['fullscreen_mode']
-                if 'use_native_notifications' in settings:
-                    alert_settings['use_native_notifications'] = settings['use_native_notifications']
                 if 'launch_app_enabled' in settings:
                     alert_settings['launch_app_enabled'] = settings['launch_app_enabled']
                 if 'launch_app_path' in settings:
