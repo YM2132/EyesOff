@@ -61,7 +61,6 @@ class ConfigManager:
             "alert_color": (0, 0, 255),  # BGR Red
             "alert_opacity": 0.8,
             "alert_size": (600, 300),
-            "alert_position": "center",
             "enable_animations": True,
             "alert_sound_enabled": False,
             "alert_sound_file": "",
