@@ -1,5 +1,7 @@
 import platform
 import time
+import subprocess
+import os
 from typing import Tuple, Optional, Callable
 
 from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QSize, QObject, pyqtSlot, pyqtSignal
@@ -43,9 +45,10 @@ class AlertDialog(QDialog):
     Custom dialog for displaying privacy alerts.
     Supports animations, custom styles, and auto-dismissal.
     """
-    
+    # TODO: Add alert_on to this class
     def __init__(self, 
-                parent=None, 
+                parent=None,
+                alert_on: bool = False,
                 alert_text: str = "EYES OFF!!!",
                 alert_color: Tuple[int, int, int] = (0, 0, 255),
                 alert_opacity: float = 0.8,
@@ -57,7 +60,9 @@ class AlertDialog(QDialog):
                 alert_sound_file: str = "",
                 fullscreen_mode: bool = False,
                 use_native_notifications: bool = False,
-                on_notification_clicked: Optional[Callable] = None):
+                on_notification_clicked: Optional[Callable] = None, # TODO we should add a callback which opens the app?
+                launch_app_enabled: bool = False,
+                launch_app_path: str = "",):
         """
         Initialize the alert dialog.
         
@@ -82,6 +87,7 @@ class AlertDialog(QDialog):
         self.signals = AlertDialogSignals()
 
         # Store settings
+        self.alert_on = alert_on
         self.alert_text = alert_text
         self.alert_color = alert_color
         self.alert_opacity = alert_opacity
@@ -94,6 +100,8 @@ class AlertDialog(QDialog):
         self.fullscreen_mode = fullscreen_mode
         self.use_native_notifications = use_native_notifications
         self.on_notification_clicked = on_notification_clicked
+        self.launch_app_enabled = launch_app_enabled
+        self.launch_app_path = launch_app_path
         
         # State variables
         self.dismiss_timer = None
@@ -326,6 +334,11 @@ class AlertDialog(QDialog):
             self.raise_timer.timeout.connect(self._ensure_visibility)
             self.raise_timer.start(100)  # Check more frequently (every 100ms)
 
+        # Launch external app if configured
+        if self.launch_app_enabled and self.launch_app_path:
+            print("TRYING TO LAUNCH APP")
+            QTimer.singleShot(200, self._launch_external_app)  # Slight delay for better UX
+
     def _ensure_visibility(self):
         """Ensure the alert window remains visible across spaces in macOS."""
         # More aggressively raise the window and activate it
@@ -536,6 +549,56 @@ class AlertDialog(QDialog):
             self.dismiss_timer.timeout.connect(self.close)
             self.dismiss_timer.start(int(self.alert_duration * 1000))
 
+    # TODO: behaviour if an app is already open?
+    def _launch_external_app(self):
+        """Launch and switch to the configured external app."""
+        if not self.launch_app_enabled or not self.launch_app_path:
+            return False
+
+        try:
+            print(f"Attempting to launch app: {self.launch_app_path}")
+
+            if platform.system() == 'Darwin':
+                # Extract the app name for the activation script
+                app_name = os.path.basename(self.launch_app_path)
+                app_name = app_name.replace('.app', '')
+
+                # First launch the app
+                subprocess.Popen(['open', self.launch_app_path])
+
+                # Give it a moment to launch
+                QTimer.singleShot(500, lambda: self._activate_macos_app(app_name))
+
+                return True
+            elif platform.system() == 'Windows':
+                # Windows - use start command
+                os.startfile(self.launch_app_path)
+                return True
+            else:
+                # Linux - use xdg-open
+                subprocess.Popen(['xdg-open', self.launch_app_path])
+                return True
+        except Exception as e:
+            print(f"Error launching app: {e}")
+            return False
+
+    def _activate_macos_app(self, app_name):
+        """
+        Bring the launched application to the foreground on macOS.
+        This must be called after the app has had time to launch.
+        """
+        try:
+            # Use AppleScript to activate the app
+            applescript = f'''
+            tell application "{app_name}"
+                activate
+            end tell
+            '''
+            subprocess.run(["osascript", "-e", applescript], check=True)
+            print(f"Activated app: {app_name}")
+        except Exception as e:
+            print(f"Error activating app: {e}")
+
 # TODO - Only shows system notification
     @pyqtSlot()
     def test_alert(self):
@@ -553,7 +616,8 @@ class AlertDialog(QDialog):
         # Also show a notification for testing
         self._show_native_notification()
     
-    def update_settings(self, 
+    def update_settings(self,
+                       alert_on: Optional[bool] = None,
                        alert_text: Optional[str] = None,
                        alert_color: Optional[Tuple[int, int, int]] = None,
                        alert_opacity: Optional[float] = None,
@@ -565,11 +629,14 @@ class AlertDialog(QDialog):
                        alert_sound_file: Optional[str] = None,
                        fullscreen_mode: Optional[bool] = None,
                        use_native_notifications: Optional[bool] = None,
-                       on_notification_clicked: Optional[Callable] = None):
+                       on_notification_clicked: Optional[Callable] = None,
+                       launch_app_enabled: Optional[bool] = None,
+                       launch_app_path: Optional[str] = None):
         """
         Update alert settings.
         
         Args:
+            alert_on: Is alert selected?
             alert_text: New alert text
             alert_color: New background color
             alert_opacity: New opacity
@@ -614,13 +681,75 @@ class AlertDialog(QDialog):
                     lambda reason: self.on_notification_clicked() 
                     if reason == QSystemTrayIcon.Trigger else None
                 )
+
+        # Update app launch settings
+        if launch_app_enabled is not None:
+            self.launch_app_enabled = launch_app_enabled
+        if launch_app_path is not None:
+            self.launch_app_path = launch_app_path
+
+        # Store alert_on setting if provided - alert_on isnt directly used in "alert.py" it is handled in main_window
+        if alert_on is not None:
+            self.alert_on = alert_on  # Properly store the value
+            # Also update the config manager if available
+            if self.parent() and hasattr(self.parent(), 'config_manager'):
+                self.parent().config_manager.set("alert_on", alert_on)
         
         # Other settings that apply to both dialog and notification modes
         if alert_text is not None:
             self.alert_text = alert_text
             if hasattr(self, 'title_label'):
                 self.title_label.setText(alert_text)
-            
+
+        if not self.use_native_notifications:
+            print('DEBUG: CHANGING ALERT SETTINGS ')
+            if alert_color is not None:
+                self.alert_color = alert_color
+                # Apply color change immediately for visual update
+                r, g, b = self.alert_color[2], self.alert_color[1], self.alert_color[0]
+                palette = self.palette()
+                palette.setColor(QPalette.Window, QColor(r, g, b))
+                self.setPalette(palette)
+                self.setAutoFillBackground(True)
+                if self.isVisible():
+                    self.update()  # Force a repaint
+
+            if alert_opacity is not None:
+                self.alert_opacity = alert_opacity
+                if hasattr(self, 'opacity_effect'):
+                    self.opacity_effect.setOpacity(alert_opacity)
+                    if self.isVisible():
+                        self.update()  # Force a repaint
+
+            if alert_size is not None:
+                self.alert_size = alert_size
+                if not self.fullscreen_mode:  # Only resize if not in fullscreen
+                    self.resize(*self.alert_size)
+                    self._position_window()
+
+            if alert_position is not None:
+                self.alert_position = alert_position
+                if not self.fullscreen_mode:  # Only reposition if not in fullscreen #TODO: If in fullscreen we should disable the alert_position settings
+                    self._position_window()
+
+                    # If fullscreen mode changed, we need to recreate the window with new flags
+                    if fullscreen_mode is not None and fullscreen_mode != self.fullscreen_mode:
+                        # Update the state variable FIRST before recreating UI
+                        self.fullscreen_mode = fullscreen_mode
+                        print(f"DEBUG: Updating fullscreen mode to {self.fullscreen_mode}")
+
+                        # Close and reopen to apply the new window flags
+                        if self.isVisible():
+                            visible = True
+                            self.close()
+                            # Recreate UI with new settings
+                            self._init_ui()
+                            if visible:
+                                self.show()
+                        else:
+                            # Just recreate UI with new settings
+                            self._init_ui()
+
         if alert_duration is not None:
             self.alert_duration = alert_duration
             
@@ -635,48 +764,3 @@ class AlertDialog(QDialog):
                 except Exception as e:
                     print(f"Error loading sound: {e}")
                     self.sound = None
-        
-        # Settings only applicable to dialog mode
-        if not self.use_native_notifications:
-            if alert_color is not None:
-                self.alert_color = alert_color
-                r, g, b = self.alert_color[2], self.alert_color[1], self.alert_color[0]
-                palette = self.palette()
-                palette.setColor(QPalette.Window, QColor(r, g, b))
-                self.setPalette(palette)
-                
-            if alert_opacity is not None:
-                self.alert_opacity = alert_opacity
-                self.opacity_effect.setOpacity(alert_opacity)
-                
-            if alert_size is not None:
-                self.alert_size = alert_size
-                if not self.fullscreen_mode:  # Only resize if not in fullscreen
-                    self.resize(*self.alert_size)
-                    self._position_window()
-                
-            if alert_position is not None:
-                self.alert_position = alert_position
-                if not self.fullscreen_mode:  # Only reposition if not in fullscreen
-                    self._position_window()
-                
-            if enable_animations is not None:
-                self.enable_animations = enable_animations
-                    
-            # If fullscreen mode changed, we need to recreate the window with new flags
-            if fullscreen_mode is not None and fullscreen_mode != self.fullscreen_mode:
-                # Update the state variable FIRST before recreating UI
-                self.fullscreen_mode = fullscreen_mode
-                print(f"DEBUG: Updating fullscreen mode to {self.fullscreen_mode}")
-                
-                # Close and reopen to apply the new window flags
-                if self.isVisible():
-                    visible = True
-                    self.close()
-                    # Recreate UI with new settings
-                    self._init_ui()
-                    if visible:
-                        self.show()
-                else:
-                    # Just recreate UI with new settings
-                    self._init_ui()

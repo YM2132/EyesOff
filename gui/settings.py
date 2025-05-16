@@ -1,4 +1,5 @@
 import os
+import platform
 from typing import Dict, Any, List, Tuple
 
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QSettings
@@ -286,7 +287,7 @@ class SettingsPanel(QWidget):
         self.appearance_layout.addRow("Alert Text:", self.alert_text_edit)
         
         # Alert color
-        self.alert_color_button = ColorButton()
+        self.alert_color_button = ColorButton() # TODO alert_color, alert_opacity dont change the alert behaviour
         self.alert_color_button.color_changed.connect(self._on_alert_color_changed)
         self.appearance_layout.addRow("Alert Color:", self.alert_color_button)
         
@@ -373,11 +374,37 @@ class SettingsPanel(QWidget):
         self.behavior_layout.addRow("Sound File:", sound_layout)
         
         self.behavior_group.setLayout(self.behavior_layout)
-        
+
+        # App launch group
+        self.app_launch_group = QGroupBox("Launch Application")
+        self.app_launch_layout = QFormLayout()
+
+        # Launch app checkbox
+        self.launch_app_check = QCheckBox()
+        self.launch_app_check.toggled.connect(self._on_launch_app_toggled)
+        self.launch_app_check.setToolTip("Launch and switch to an application when an alert is triggered")
+        self.app_launch_layout.addRow("Launch App on Alert:", self.launch_app_check)
+
+        # App selection
+        app_path_layout = QHBoxLayout()
+        self.app_path_edit = QLineEdit()
+        self.app_path_edit.setEnabled(False)  # Initially disabled
+
+        self.app_browse_button = QPushButton("Browse...")
+        self.app_browse_button.setEnabled(False)  # Initially disabled
+        self.app_browse_button.clicked.connect(self._on_app_browse_clicked)
+
+        app_path_layout.addWidget(self.app_path_edit)
+        app_path_layout.addWidget(self.app_browse_button)
+
+        self.app_launch_layout.addRow("Application:", app_path_layout)
+        self.app_launch_group.setLayout(self.app_launch_layout)
+
         # Add all groups to tab layout
         layout.addWidget(self.alert_on_group)
         layout.addWidget(self.appearance_group)
         layout.addWidget(self.behavior_group)
+        layout.addWidget(self.app_launch_group)
         layout.addStretch(1)
         
         tab.setLayout(layout)
@@ -545,6 +572,8 @@ class SettingsPanel(QWidget):
         # self.privacy_mode_check.setChecked(self.config_manager.get("privacy_mode", False))
         
         # Alert tab
+        self.alert_on_check.setChecked(self.config_manager.get("alert_on", False))
+
         self.alert_text_edit.setText(self.config_manager.get("alert_text", "EYES OFF!!!"))
         self.alert_color_button.set_color(self.config_manager.get("alert_color", (0, 0, 255)))
         self.alert_opacity_slider.setValue(int(self.config_manager.get("alert_opacity", 0.8) * 100))
@@ -571,6 +600,12 @@ class SettingsPanel(QWidget):
         self.alert_sound_edit.setEnabled(alert_sound_enabled)
         self.sound_browse_button.setEnabled(alert_sound_enabled)
         self.alert_sound_edit.setText(self.config_manager.get("alert_sound_file", ""))
+
+        # App launch settings
+        self.launch_app_check.setChecked(self.config_manager.get("launch_app_enabled", False))
+        self.app_path_edit.setText(self.config_manager.get("launch_app_path", ""))
+        self.app_path_edit.setEnabled(self.launch_app_check.isChecked())
+        self.app_browse_button.setEnabled(self.launch_app_check.isChecked())
         
         # Camera tab
         camera_id = self.config_manager.get("camera_id", 0)
@@ -718,6 +753,74 @@ class SettingsPanel(QWidget):
         """Activate alert settings if we toggle the alert on"""
         self.appearance_group.setEnabled(checked)
         self.behavior_group.setEnabled(checked)
+
+    def _on_launch_app_toggled(self, checked: bool):
+        self.app_path_edit.setEnabled(checked)
+        self.app_browse_button.setEnabled(checked)
+
+    def _on_app_browse_clicked(self):
+        """Handle app browse button click."""
+        if platform.system() == 'Darwin':
+            # First, try to browse to the Applications directory
+            # Use getOpenFileName to get better .app visibility with native dialog
+            filename, _ = QFileDialog.getOpenFileName(
+                self,
+                "Select Application (.app)",
+                "/Applications",
+                "Applications (*.app);;All Files (*)"
+            )
+
+            # If nothing was selected, try a different approach
+            if not filename:
+                # Allow browsing to any location
+                filename = QFileDialog.getExistingDirectory(
+                    self,
+                    "Select Application Directory",
+                    "/Applications"
+                )
+
+            # Validate and set the path
+            if filename:
+                # If it's an app bundle or executable, use it directly
+                if filename.endswith('.app') or os.access(filename, os.X_OK):
+                    self.app_path_edit.setText(filename)
+                else:
+                    # Check if the selected path contains an executable
+                    if os.path.isdir(filename) and any(f.endswith('.app') for f in os.listdir(filename)):
+                        # If directory contains .app files, show a selection dialog
+                        from PyQt5.QtWidgets import QInputDialog
+                        app_files = [f for f in os.listdir(filename) if f.endswith('.app')]
+                        app_name, ok = QInputDialog.getItem(
+                            self,
+                            "Select Application",
+                            "Choose an application:",
+                            app_files,
+                            0,
+                            False
+                        )
+                        if ok and app_name:
+                            self.app_path_edit.setText(os.path.join(filename, app_name))
+                    else:
+                        from PyQt5.QtWidgets import QMessageBox
+                        response = QMessageBox.question(
+                            self,
+                            "Confirm Selection",
+                            f"The selected path doesn't appear to be an application.\n\n{filename}\n\nUse anyway?",
+                            QMessageBox.Yes | QMessageBox.No
+                        )
+                        if response == QMessageBox.Yes:
+                            self.app_path_edit.setText(filename)
+        else:
+            # Other platforms: Use standard dialog
+            filename, _ = QFileDialog.getOpenFileName(
+                self,
+                "Select Application",
+                "",
+                "Executables (*.exe);;All Files (*)"
+            )
+
+            if filename:
+                self.app_path_edit.setText(filename)
     
     def _on_apply_clicked(self):
         """Handle apply button click."""
@@ -746,6 +849,10 @@ class SettingsPanel(QWidget):
         settings["enable_animations"] = self.animations_check.isChecked()
         settings["fullscreen_mode"] = self.fullscreen_check.isChecked()
         settings["use_native_notifications"] = self.native_notifications_check.isChecked()
+        # App launch settings
+        # App launch settings
+        settings["launch_app_enabled"] = self.launch_app_check.isChecked()
+        settings["launch_app_path"] = self.app_path_edit.text()
         
         if self.auto_dismiss_check.isChecked():
             settings["alert_duration"] = self.alert_duration_spin.value()
