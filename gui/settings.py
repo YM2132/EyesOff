@@ -7,7 +7,7 @@ from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
                              QLabel, QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox,
                              QPushButton, QSlider, QLineEdit, QFileDialog, QGroupBox,
-                             QFormLayout, QColorDialog, QGridLayout)
+                             QFormLayout, QColorDialog, QGridLayout, QRadioButton)
 
 from core.detector import FaceDetector
 from core.webcam import WebcamManager
@@ -255,155 +255,201 @@ class SettingsPanel(QWidget):
         
         tab.setLayout(layout)
         return tab
-    
+
     def _create_alert_tab(self) -> QWidget:
         """
-        Create the alert settings tab.
-        
+        Create the alert settings tab with improved UX.
+
         Returns:
             QWidget: Alert settings tab
         """
         tab = QWidget()
         layout = QVBoxLayout()
+        layout.setSpacing(15)
 
-        self.alert_on_group = QGroupBox("Activate Alert")
-        self.alert_on_layout = QFormLayout()
+        # 1. Alert Type Selection (Radio Buttons)
+        alert_type_group = QGroupBox("Alert Type")
+        alert_type_layout = QVBoxLayout()
+        alert_type_layout.setSpacing(10)
 
-        # Alert or Notification only
-        self.alert_on_check = QCheckBox()
-        self.alert_on_check.toggled.connect(self._on_alert_toggle_clicked)
-        self.alert_on_check.setToolTip("When checked, shows alert dialogs. When unchecked, shows only push notifications.")
-        self.alert_on_layout.addRow("Alert Toggle:", self.alert_on_check)
+        # Create radio buttons for the two options
+        self.notification_radio = QRadioButton("Push Notification")
+        self.notification_radio.setToolTip("Show a brief system notification in the corner")
 
-        self.alert_on_group.setLayout(self.alert_on_layout)
-        
-        # Appearance group
-        self.appearance_group = QGroupBox("Alert Appearance")
-        self.appearance_layout = QFormLayout()
-        self.appearance_group.setEnabled(False)
-        
+        self.screen_alert_radio = QRadioButton("Screen Alert")
+        self.screen_alert_radio.setToolTip("Show an attention-grabbing overlay on screen")
+
+        # Add radio buttons to layout
+        alert_type_layout.addWidget(self.notification_radio)
+        alert_type_layout.addWidget(self.screen_alert_radio)
+        alert_type_group.setLayout(alert_type_layout)
+
+        # Connect radio buttons to handler
+        self.notification_radio.toggled.connect(self._on_alert_type_changed)
+        self.screen_alert_radio.toggled.connect(self._on_alert_type_changed)
+
+        # 2. Screen Alert Configuration
+        self.screen_alert_config = QGroupBox("Configure Screen Alert")
+        screen_alert_layout = QFormLayout()
+        screen_alert_layout.setVerticalSpacing(12)
+
         # Alert text
         self.alert_text_edit = QLineEdit()
-        self.appearance_layout.addRow("Alert Text:", self.alert_text_edit)
-        
-        # Alert color
-        self.alert_color_button = ColorButton() # TODO alert_color, alert_opacity dont change the alert behaviour
+        screen_alert_layout.addRow("Text:", self.alert_text_edit)
+
+        # Appearance with color and opacity - improved alignment
+        appearance_layout = QGridLayout()  # Use grid for better alignment
+        appearance_layout.setSpacing(10)
+
+        # Color in first column
+        appearance_layout.addWidget(QLabel("Color:"), 0, 0, Qt.AlignRight)
+        self.alert_color_button = ColorButton()
         self.alert_color_button.color_changed.connect(self._on_alert_color_changed)
-        self.appearance_layout.addRow("Alert Color:", self.alert_color_button)
-        
-        # Alert opacity
-        self.alert_opacity_slider = QSlider(Qt.Horizontal)
-        self.alert_opacity_slider.setRange(10, 100)
-        self.alert_opacity_slider.setTickPosition(QSlider.TicksBelow)
-        self.alert_opacity_slider.setTickInterval(10)
-        self.appearance_layout.addRow("Opacity:", self.alert_opacity_slider)
-        
-        # Alert size
-        size_layout = QHBoxLayout()
+        self.alert_color_button.setMinimumWidth(0)  # Ensure consistent width
+        appearance_layout.addWidget(self.alert_color_button, 0, 1)
+
+        # Opacity in second column, properly aligned
+        appearance_layout.addWidget(QLabel("Opacity:"), 0, 2, Qt.AlignRight)
+        self.alert_opacity_spin = QSpinBox()
+        self.alert_opacity_spin.setRange(10, 100)
+        self.alert_opacity_spin.setSuffix("%")
+        self.alert_opacity_spin.setMinimumWidth(0)
+        appearance_layout.addWidget(self.alert_opacity_spin, 0, 3)
+
+        # Add some stretching to keep alignment
+        appearance_layout.setColumnStretch(4, 1)
+
+        screen_alert_layout.addRow("Appearance:", appearance_layout)
+
+        # Display Options
+        display_options_group = QGroupBox("Display Options")
+        display_options_layout = QVBoxLayout()
+        display_options_layout.setContentsMargins(12, 12, 12, 12)  # Add more padding
+        display_options_layout.setSpacing(10)  # Increase spacing between elements
+
+        # Set minimum height to ensure it's larger
+        display_options_group.setMinimumHeight(0)  # Slightly taller to accommodate added controls
+
+        # Animation effects
+        self.animations_check = QCheckBox("Animation effects")
+        display_options_layout.addWidget(self.animations_check)
+
+        # Fullscreen mode
+        self.fullscreen_check = QCheckBox("Fullscreen mode")
+        self.fullscreen_check.setToolTip("Display alert in fullscreen mode (covers entire screen)")
+        display_options_layout.addWidget(self.fullscreen_check)
+
+        # Size controls
+        size_layout = QGridLayout()
+        size_layout.setHorizontalSpacing(10)
+        size_layout.setVerticalSpacing(10)
+
+        # Add label in its own column
+        size_layout.addWidget(QLabel("Size:"), 0, 0, Qt.AlignRight)
+
+        # Width controls
+        size_layout.addWidget(QLabel("Width:"), 0, 1)
         self.alert_width_spin = QSpinBox()
         self.alert_width_spin.setRange(200, 1200)
         self.alert_width_spin.setSingleStep(50)
-        
+        self.alert_width_spin.setMinimumHeight(18)
+        size_layout.addWidget(self.alert_width_spin, 0, 2)
+
+        # Height controls
+        size_layout.addWidget(QLabel("Height:"), 0, 3)
         self.alert_height_spin = QSpinBox()
         self.alert_height_spin.setRange(100, 800)
         self.alert_height_spin.setSingleStep(50)
-        
-        size_layout.addWidget(QLabel("Width:"))
-        size_layout.addWidget(self.alert_width_spin)
-        size_layout.addWidget(QLabel("Height:"))
-        size_layout.addWidget(self.alert_height_spin)
-        
-        self.appearance_layout.addRow("Alert Size:", size_layout)
-        
-        # Alert position
-        self.alert_position_combo = QComboBox()
-        self.alert_position_combo.addItems(["center", "top", "bottom"])
-        self.appearance_layout.addRow("Alert Position:", self.alert_position_combo)
-        
-        self.appearance_group.setLayout(self.appearance_layout)
-        
-        # Behavior group
-        self.behavior_group = QGroupBox("Alert Behavior")
-        self.behavior_layout = QFormLayout()
-        self.behavior_group.setEnabled(False)
-        
-        # Enable animations
-        self.animations_check = QCheckBox()
-        self.behavior_layout.addRow("Enable Animations:", self.animations_check)
-        
-        # Auto-dismiss
-        self.auto_dismiss_check = QCheckBox()
-        self.auto_dismiss_check.toggled.connect(self._on_auto_dismiss_toggled)
-        self.behavior_layout.addRow("Auto-dismiss Alert:", self.auto_dismiss_check)
-        
-        # Alert duration
-        self.alert_duration_spin = QDoubleSpinBox()
-        self.alert_duration_spin.setRange(1.0, 30.0)
-        self.alert_duration_spin.setSingleStep(0.5)
-        self.alert_duration_spin.setDecimals(1)
-        self.alert_duration_spin.setEnabled(False)  # Initially disabled
-        self.behavior_layout.addRow("Alert Duration (s):", self.alert_duration_spin)
-        
-        # Fullscreen mode
-        self.fullscreen_check = QCheckBox()
-        self.fullscreen_check.setToolTip("Display alert in fullscreen mode (covers entire screen)")
-        self.behavior_layout.addRow("Fullscreen Alert:", self.fullscreen_check)
-        
-        # Alert sound
+        self.alert_height_spin.setMinimumHeight(18)
+        size_layout.addWidget(self.alert_height_spin, 0, 4)
+
+        # Add stretch to maintain alignment
+        size_layout.setColumnStretch(5, 1)
+        display_options_layout.addLayout(size_layout)
+
+        # Auto-dismiss control - MOVED here inside the Display Options
+        auto_dismiss_layout = QHBoxLayout()
+        self.auto_dismiss_check = QCheckBox("Auto-dismiss alert?")
+        auto_dismiss_layout.addWidget(self.auto_dismiss_check)
+        auto_dismiss_layout.addStretch(1)
+        display_options_layout.addLayout(auto_dismiss_layout)
+
+        auto_dismiss_layout.addStretch(1)
+        display_options_layout.addLayout(auto_dismiss_layout)
+
+        display_options_group.setLayout(display_options_layout)
+        screen_alert_layout.addRow(display_options_group)
+
+        self.screen_alert_config.setLayout(screen_alert_layout)
+
+        # 3. Sound Settings (Common for both alert types)
+        sound_group = QGroupBox("Sound Settings")
+        sound_layout = QFormLayout()
+
+        # Play sound checkbox
         self.alert_sound_check = QCheckBox()
         self.alert_sound_check.toggled.connect(self._on_alert_sound_toggled)
-        self.behavior_layout.addRow("Play Alert Sound:", self.alert_sound_check)
-        
-        # Sound file selection
-        sound_layout = QHBoxLayout()
-        self.alert_sound_edit = QLineEdit()
-        self.alert_sound_edit.setEnabled(False)  # Initially disabled
-        
-        self.sound_browse_button = QPushButton("Browse...")
-        self.sound_browse_button.setEnabled(False)  # Initially disabled
-        self.sound_browse_button.clicked.connect(self._on_sound_browse_clicked)
-        
-        sound_layout.addWidget(self.alert_sound_edit)
-        sound_layout.addWidget(self.sound_browse_button)
-        
-        self.behavior_layout.addRow("Sound File:", sound_layout)
-        
-        self.behavior_group.setLayout(self.behavior_layout)
+        sound_layout.addRow("Play Sound:", self.alert_sound_check)
 
-        # App launch group
-        self.app_launch_group = QGroupBox("Launch Application")
-        self.app_launch_layout = QFormLayout()
+        # Sound file selection
+        sound_file_layout = QHBoxLayout()
+        self.alert_sound_edit = QLineEdit()
+        self.alert_sound_edit.setEnabled(False)
+
+        self.sound_browse_button = QPushButton("Browse...")
+        self.sound_browse_button.setEnabled(False)
+        self.sound_browse_button.clicked.connect(self._on_sound_browse_clicked)
+
+        sound_file_layout.addWidget(self.alert_sound_edit)
+        sound_file_layout.addWidget(self.sound_browse_button)
+
+        sound_layout.addRow("Sound File:", sound_file_layout)
+        sound_group.setLayout(sound_layout)
+
+        # 4. Application Launch (Separate Section)
+        app_launch_group = QGroupBox("Launch External Application")
+        app_launch_layout = QVBoxLayout()
 
         # Launch app checkbox
-        self.launch_app_check = QCheckBox()
+        self.launch_app_check = QCheckBox("Launch application when alert triggered")
         self.launch_app_check.toggled.connect(self._on_launch_app_toggled)
-        self.launch_app_check.setToolTip("Launch and switch to an application when an alert is triggered")
-        self.app_launch_layout.addRow("Launch App on Alert:", self.launch_app_check)
+        app_launch_layout.addWidget(self.launch_app_check)
 
         # App selection
         app_path_layout = QHBoxLayout()
+        app_path_layout.addWidget(QLabel("Application:"))
         self.app_path_edit = QLineEdit()
-        self.app_path_edit.setEnabled(False)  # Initially disabled
+        self.app_path_edit.setEnabled(False)
+        app_path_layout.addWidget(self.app_path_edit)
 
         self.app_browse_button = QPushButton("Browse...")
-        self.app_browse_button.setEnabled(False)  # Initially disabled
+        self.app_browse_button.setEnabled(False)
         self.app_browse_button.clicked.connect(self._on_app_browse_clicked)
-
-        app_path_layout.addWidget(self.app_path_edit)
         app_path_layout.addWidget(self.app_browse_button)
 
-        self.app_launch_layout.addRow("Application:", app_path_layout)
-        self.app_launch_group.setLayout(self.app_launch_layout)
+        app_launch_layout.addLayout(app_path_layout)
+        app_launch_group.setLayout(app_launch_layout)
 
         # Add all groups to tab layout
-        layout.addWidget(self.alert_on_group)
-        layout.addWidget(self.appearance_group)
-        layout.addWidget(self.behavior_group)
-        layout.addWidget(self.app_launch_group)
+        layout.addWidget(alert_type_group)
+        layout.addWidget(self.screen_alert_config)
+        layout.addWidget(sound_group)
+        layout.addWidget(app_launch_group)
         layout.addStretch(1)
-        
+
         tab.setLayout(layout)
         return tab
+
+    def _on_alert_type_changed(self):
+        """Handle alert type radio button change."""
+        use_screen_alert = self.screen_alert_radio.isChecked()
+
+        # Show/hide the screen alert configuration based on selection
+        self.screen_alert_config.setVisible(use_screen_alert)
+
+        # Update internal state
+        if hasattr(self, 'alert_on_check'):  # For backward compatibility
+            self.alert_on_check.setChecked(use_screen_alert)
     
     def _create_camera_tab(self) -> QWidget:
         """
@@ -567,28 +613,33 @@ class SettingsPanel(QWidget):
         # self.privacy_mode_check.setChecked(self.config_manager.get("privacy_mode", False))
         
         # Alert tab
-        self.alert_on_check.setChecked(self.config_manager.get("alert_on", False))
+        # Set the appropriate radio button based on alert_on setting
+        alert_on = self.config_manager.get("alert_on", False)
+        if alert_on:
+            self.screen_alert_radio.setChecked(True)
+        else:
+            self.notification_radio.setChecked(True)
+
+        # Only show screen alert config if alert_on is True
+        self.screen_alert_config.setVisible(alert_on)
+
+        # Change from slider to spinner for opacity
+        opacity_percentage = int(self.config_manager.get("alert_opacity", 0.8) * 100)
+        self.alert_opacity_spin.setValue(opacity_percentage)
 
         self.alert_text_edit.setText(self.config_manager.get("alert_text", "EYES OFF!!!"))
         self.alert_color_button.set_color(self.config_manager.get("alert_color", (0, 0, 255)))
-        self.alert_opacity_slider.setValue(int(self.config_manager.get("alert_opacity", 0.8) * 100))
+        self.alert_opacity_spin.setValue(int(self.config_manager.get("alert_opacity", 0.8) * 100))
         
         alert_size = self.config_manager.get("alert_size", (600, 300))
         self.alert_width_spin.setValue(alert_size[0])
         self.alert_height_spin.setValue(alert_size[1])
         
-        self.alert_position_combo.setCurrentText(self.config_manager.get("alert_position", "center"))
         self.animations_check.setChecked(self.config_manager.get("enable_animations", True))
         self.fullscreen_check.setChecked(self.config_manager.get("fullscreen_mode", False))
-        
-        alert_duration = self.config_manager.get("alert_duration", None)
-        if alert_duration is not None:
-            self.auto_dismiss_check.setChecked(True)
-            self.alert_duration_spin.setValue(alert_duration)
-            self.alert_duration_spin.setEnabled(True)
-        else:
-            self.auto_dismiss_check.setChecked(False)
-            self.alert_duration_spin.setEnabled(False)
+
+        auto_dismiss = self.config_manager.get("auto_dismiss", False)
+        self.auto_dismiss_check.setChecked(auto_dismiss)
         
         alert_sound_enabled = self.config_manager.get("alert_sound_enabled", False)
         self.alert_sound_check.setChecked(alert_sound_enabled)
@@ -653,15 +704,6 @@ class SettingsPanel(QWidget):
         
         # Enable apply button as settings have changed
         self.apply_button.setEnabled(True)
-    
-    def _on_auto_dismiss_toggled(self, checked: bool):
-        """
-        Handle auto-dismiss checkbox toggle.
-        
-        Args:
-            checked: New checkbox state
-        """
-        self.alert_duration_spin.setEnabled(checked)
     
     def _on_alert_sound_toggled(self, checked: bool):
         """
@@ -831,21 +873,21 @@ class SettingsPanel(QWidget):
         # settings["privacy_mode"] = self.privacy_mode_check.isChecked()
         
         # Alert tab
-        settings["alert_on"] = self.alert_on_check.isChecked()
+        settings["alert_on"] = self.screen_alert_radio.isChecked()
+        settings["alert_opacity"] = self.alert_opacity_spin.value() / 100.0
         settings["alert_text"] = self.alert_text_edit.text()
         settings["alert_color"] = self.alert_color_button.bgr_color
-        settings["alert_opacity"] = self.alert_opacity_slider.value() / 100.0
         settings["alert_size"] = (self.alert_width_spin.value(), self.alert_height_spin.value())
-        settings["alert_position"] = self.alert_position_combo.currentText()
+        settings["alert_position"] = "centre"
         settings["enable_animations"] = self.animations_check.isChecked()
         settings["fullscreen_mode"] = self.fullscreen_check.isChecked()
         # App launch settings
-        # App launch settings
         settings["launch_app_enabled"] = self.launch_app_check.isChecked()
         settings["launch_app_path"] = self.app_path_edit.text()
-        
-        if self.auto_dismiss_check.isChecked():
-            settings["alert_duration"] = self.alert_duration_spin.value()
+
+        settings["auto_dismiss"] = self.auto_dismiss_check.isChecked()
+        if settings["auto_dismiss"]:
+            settings["alert_duration"] = 1.0  # Fixed value
         else:
             settings["alert_duration"] = None
 
