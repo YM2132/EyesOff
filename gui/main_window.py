@@ -282,6 +282,8 @@ class MainWindow(QMainWindow):
             alert_sound_file=self.config_manager.get("alert_sound_file", ""),
             fullscreen_mode=self.config_manager.get("fullscreen_mode", False),
             use_native_notifications=self.config_manager.get("use_native_notifications", False),
+            launch_app_enabled=self.config_manager.get("launch_app_enabled", False),
+            launch_app_path=self.config_manager.get("launch_app_path", ""),
             on_notification_clicked=self.show
         )
 
@@ -438,6 +440,8 @@ class MainWindow(QMainWindow):
             # Update alert dialog settings
             if self.alert_dialog:
                 alert_settings = {}
+                if 'alert_on' in settings:
+                    alert_settings['alert_on'] = settings['alert_on']
                 if 'alert_text' in settings:
                     alert_settings['alert_text'] = settings['alert_text']
                 if 'alert_color' in settings:
@@ -460,6 +464,10 @@ class MainWindow(QMainWindow):
                     alert_settings['fullscreen_mode'] = settings['fullscreen_mode']
                 if 'use_native_notifications' in settings:
                     alert_settings['use_native_notifications'] = settings['use_native_notifications']
+                if 'launch_app_enabled' in settings:
+                    alert_settings['launch_app_enabled'] = settings['launch_app_enabled']
+                if 'launch_app_path' in settings:
+                    alert_settings['launch_app_path'] = settings['launch_app_path']
                     
                 if alert_settings:
                     self.alert_dialog.update_settings(**alert_settings)
@@ -555,52 +563,74 @@ class MainWindow(QMainWindow):
         """Handle signal to show the alert dialog."""
         # Check if alert is toggled on
         alert_on = self.config_manager.get("alert_on")
-        print(f"IS ALERT ON: {alert_on}")
 
-        if not alert_on:
-            # If alert is turned off, simply show native notification
-            self.alert_dialog._show_native_notification()
+        # Check if app launch is enabled
+        launch_app_enabled = self.config_manager.get("launch_app_enabled", False)
+        launch_app_path = self.config_manager.get("launch_app_path", "")
 
-            # TODO - When we switch to native notifications then change this behaviour to not be automatic
+        if launch_app_enabled and launch_app_path:
+            # Use notification and launch app
+            if self.alert_dialog:
+                self.alert_dialog._show_native_notification()
+                QTimer.singleShot(200, self.alert_dialog._launch_external_app)
+
             # Show the alert indicator in the UI
             if self.detection_thread and self.detection_thread.detection_manager:
                 self.detection_thread.detection_manager.is_alert_showing = True
-                self.webcam_view.update_alert_state(True)  # Ensure UI is updated
+                self.webcam_view.update_alert_state(True)
 
-                # Set a timer to auto-dismiss after a short period (e.g., 3 seconds)
-                QTimer.singleShot(500, self._auto_dismiss_notification_alert)
+            print("DEBUG: Launching app and showing notification")
+        elif not alert_on:
+            # If alert is turned off, simply show native notification
+            if self.alert_dialog:
+                self.alert_dialog._show_native_notification()
 
-            # Log for debugging
+            # Show the alert indicator in the UI
+            if self.detection_thread and self.detection_thread.detection_manager:
+                self.detection_thread.detection_manager.is_alert_showing = True
+                self.webcam_view.update_alert_state(True)
+
+            # Set a timer to auto-dismiss after a short period
+            QTimer.singleShot(500, self._auto_dismiss_notification_alert)
+
             print("DEBUG: Showing notification (alert is turned off)")
-            print('---' * 25)
         else:
-            # Alert is on - show the window alert and bring main window to foreground
+            # Show alert dialog
             if not self.alert_dialog:
                 return
 
-            # First, activate the main application window to bring it to the foreground
-            self.activateWindow()  # This makes your main window active
-            self.raise_()  # This raises it to the top
+            # First, activate the main application window
+            self.activateWindow()
+            self.raise_()
 
-            # If existing popup is visible, close it first to prevent duplicates
+            # Close existing popup if visible
             if self.alert_dialog.isVisible():
                 self.alert_dialog.close()
 
-            # Check fullscreen setting
-            fullscreen_setting = self.config_manager.get("fullscreen_mode", False)
-
-            # Make sure to use correct fullscreen setting
-            if self.alert_dialog.fullscreen_mode != fullscreen_setting:
-                # Close and recreate alert dialog with new setting
-                self.alert_dialog.close()
-                self._create_alert_dialog()
+            # Ensure alert dialog has latest settings
+            self._refresh_alert_dialog_visual_settings()
 
             # Show the alert window
             self.alert_dialog.show()
 
-            # Log for debugging
-            print(f"DEBUG: Showing {'fullscreen' if self.alert_dialog.fullscreen_mode else 'regular'} popup alert")
-            print('---' * 25)
+            print(f"DEBUG: Showing popup alert")
+
+    def _refresh_alert_dialog_visual_settings(self):
+        """Refresh the alert dialog with current settings."""
+        print("DEBUG: Refreshing alert visuals")
+        if not self.alert_dialog:
+            return
+
+        # Apply current settings to ensure it's up to date
+        settings = {
+            "alert_color": self.config_manager.get("alert_color", (0, 0, 255)),
+            "alert_opacity": self.config_manager.get("alert_opacity", 0.8),
+            "alert_text": self.config_manager.get("alert_text", "EYES OFF!!!"),
+            "fullscreen_mode": self.config_manager.get("fullscreen_mode", False),
+            # Include other relevant settings
+        }
+
+        self.alert_dialog.update_settings(**settings)
             
     def _on_dismiss_alert(self):
         """Handle signal to dismiss the alert dialog."""
