@@ -662,7 +662,7 @@ class AlertDialog(QDialog):
                 print("Successfully activated via Dock click")
                 return True
 
-        # TODO still doesnt work when we are on safari on home screen, maybe need 3 calls?
+        # TODO still doesnt work when we are on safari on home screen, maybe need 3 calls? ALSO add in permissions request for .app
 
         # METHOD 3: Last resort AppleScript
         script = f'''
