@@ -90,7 +90,7 @@ class ConfigManager:
             "snapshot_path": f"{get_snapshots_dir()}",
 
             # App version
-            "app_version": "1.0.1",
+            "app_version": "1.1.0",
         }
     
     def _load_config(self):
