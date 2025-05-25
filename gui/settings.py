@@ -406,8 +406,8 @@ class SettingsPanel(QWidget):
         sound_layout.addRow("Sound File:", sound_file_layout)
         sound_group.setLayout(sound_layout)
 
-        # 4. Application Launch (Separate Section)
-        app_launch_group = QGroupBox("Launch External Application")
+        # 4. Application Launch (Only for Push Notifications)
+        self.app_launch_group = QGroupBox("Launch External Application")
         app_launch_layout = QVBoxLayout()
 
         # Launch app checkbox
@@ -428,13 +428,13 @@ class SettingsPanel(QWidget):
         app_path_layout.addWidget(self.app_browse_button)
 
         app_launch_layout.addLayout(app_path_layout)
-        app_launch_group.setLayout(app_launch_layout)
+        self.app_launch_group.setLayout(app_launch_layout)
 
         # Add all groups to tab layout
         layout.addWidget(alert_type_group)
         layout.addWidget(self.screen_alert_config)
         layout.addWidget(sound_group)
-        layout.addWidget(app_launch_group)
+        layout.addWidget(self.app_launch_group)
         layout.addStretch(1)
 
         tab.setLayout(layout)
@@ -443,9 +443,14 @@ class SettingsPanel(QWidget):
     def _on_alert_type_changed(self):
         """Handle alert type radio button change."""
         use_screen_alert = self.screen_alert_radio.isChecked()
+        use_notification = self.notification_radio.isChecked()
 
         # Show/hide the screen alert configuration based on selection
         self.screen_alert_config.setVisible(use_screen_alert)
+
+        # Show/hide the app launch group based on selection
+        # Only show app launch for push notifications, NOT for screen alerts
+        self.app_launch_group.setVisible(use_notification)
 
         # Update internal state
         if hasattr(self, 'alert_on_check'):  # For backward compatibility
@@ -583,7 +588,7 @@ class SettingsPanel(QWidget):
         
         tab.setLayout(layout)
         return tab
-    
+
     def _load_settings(self):
         """Load settings from configuration manager into UI components."""
         # Detection tab
@@ -596,12 +601,12 @@ class SettingsPanel(QWidget):
         self.gaze_confidence_spin.setEnabled(detector_type == "gaze")
 
         self._on_model_type_changed(friendly_name)  # Populate model path combo
-        
+
         model_path = self.config_manager.get("model_path", "")
         index = self.model_path_combo.findText(model_path)
         if index >= 0:
             self.model_path_combo.setCurrentIndex(index)
-        
+
         # self.confidence_spin.setValue(self.config_manager.get("confidence_threshold", 0.5))
         self.face_confidence_spin.setValue(self.config_manager.get("confidence_threshold", 0.75))
         self.face_threshold_spin.setValue(self.config_manager.get("face_threshold", 1))
@@ -609,9 +614,9 @@ class SettingsPanel(QWidget):
         self.detection_delay_spin.setValue(self.config_manager.get("detection_delay", 0.2))
         # Load gaze threshold
         self.gaze_confidence_spin.setValue(self.config_manager.get("gaze_threshold", 0.6))
-        #self.show_detection_check.setChecked(self.config_manager.get("show_detection_visualization", True))
+        # self.show_detection_check.setChecked(self.config_manager.get("show_detection_visualization", True))
         # self.privacy_mode_check.setChecked(self.config_manager.get("privacy_mode", False))
-        
+
         # Alert tab
         # Set the appropriate radio button based on alert_on setting
         alert_on = self.config_manager.get("alert_on", False)
@@ -620,8 +625,9 @@ class SettingsPanel(QWidget):
         else:
             self.notification_radio.setChecked(True)
 
-        # Only show screen alert config if alert_on is True
+        # Show/hide configurations based on alert type
         self.screen_alert_config.setVisible(alert_on)
+        self.app_launch_group.setVisible(not alert_on)  # Only show for push notifications
 
         # Change from slider to spinner for opacity
         opacity_percentage = int(self.config_manager.get("alert_opacity", 0.8) * 100)
@@ -630,17 +636,17 @@ class SettingsPanel(QWidget):
         self.alert_text_edit.setText(self.config_manager.get("alert_text", "EYES OFF!!!"))
         self.alert_color_button.set_color(self.config_manager.get("alert_color", (0, 0, 255)))
         self.alert_opacity_spin.setValue(int(self.config_manager.get("alert_opacity", 0.8) * 100))
-        
+
         alert_size = self.config_manager.get("alert_size", (600, 300))
         self.alert_width_spin.setValue(alert_size[0])
         self.alert_height_spin.setValue(alert_size[1])
-        
+
         self.animations_check.setChecked(self.config_manager.get("enable_animations", True))
         self.fullscreen_check.setChecked(self.config_manager.get("fullscreen_mode", False))
 
         auto_dismiss = self.config_manager.get("auto_dismiss", False)
         self.auto_dismiss_check.setChecked(auto_dismiss)
-        
+
         alert_sound_enabled = self.config_manager.get("alert_sound_enabled", False)
         self.alert_sound_check.setChecked(alert_sound_enabled)
         self.alert_sound_edit.setEnabled(alert_sound_enabled)
@@ -652,17 +658,17 @@ class SettingsPanel(QWidget):
         self.app_path_edit.setText(self.config_manager.get("launch_app_path", ""))
         self.app_path_edit.setEnabled(self.launch_app_check.isChecked())
         self.app_browse_button.setEnabled(self.launch_app_check.isChecked())
-        
+
         # Camera tab
         camera_id = self.config_manager.get("camera_id", 0)
         try:
             self.camera_combo.setCurrentIndex(camera_id)
         except:
             self.camera_combo.setCurrentIndex(0)
-        
+
         frame_width = self.config_manager.get("frame_width", 640)
         frame_height = self.config_manager.get("frame_height", 480)
-        
+
         # Set resolution combo
         if frame_width == 640 and frame_height == 480:
             self.resolution_combo.setCurrentText("640x480 (VGA)")
@@ -676,7 +682,7 @@ class SettingsPanel(QWidget):
             self.height_spin.setEnabled(True)
             self.width_spin.setValue(frame_width)
             self.height_spin.setValue(frame_height)
-        
+
         # App tab
         self.start_boot_check.setChecked(self.config_manager.get("start_on_boot", False))
         self.start_minimized_check.setChecked(self.config_manager.get("start_minimized", False))
