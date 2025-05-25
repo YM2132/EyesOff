@@ -1,5 +1,7 @@
 import platform
 import time
+import subprocess
+import os
 from typing import Tuple, Optional, Callable
 
 from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QSize, QObject, pyqtSlot, pyqtSignal
@@ -33,6 +35,16 @@ if platform.system() == 'Darwin':
 else:
     NATIVE_NOTIFICATION_SUPPORT = False
 
+if platform.system() == 'Darwin':
+    try:
+        import objc
+        from Cocoa import NSApp, NSRunningApplication, NSWorkspace, NSURL
+        from AppKit import NSApplicationActivateAllWindows
+        PYOBJC_AVAILABLE = True
+    except ImportError:
+        PYOBJC_AVAILABLE = False
+        print("PyObjC not available - falling back to AppleScript method")
+
 class AlertDialogSignals(QObject):
     """Signals for alert dialog"""
     # Signal emitted when an alert should be dismissed
@@ -43,9 +55,10 @@ class AlertDialog(QDialog):
     Custom dialog for displaying privacy alerts.
     Supports animations, custom styles, and auto-dismissal.
     """
-    
+    # TODO: Add alert_on to this class
     def __init__(self, 
-                parent=None, 
+                parent=None,
+                alert_on: bool = False,
                 alert_text: str = "EYES OFF!!!",
                 alert_color: Tuple[int, int, int] = (0, 0, 255),
                 alert_opacity: float = 0.8,
@@ -56,8 +69,9 @@ class AlertDialog(QDialog):
                 alert_sound_enabled: bool = False,
                 alert_sound_file: str = "",
                 fullscreen_mode: bool = False,
-                use_native_notifications: bool = False,
-                on_notification_clicked: Optional[Callable] = None):
+                on_notification_clicked: Optional[Callable] = None, # TODO we should add a callback which opens the app?
+                launch_app_enabled: bool = False,
+                launch_app_path: str = "",):
         """
         Initialize the alert dialog.
         
@@ -82,6 +96,7 @@ class AlertDialog(QDialog):
         self.signals = AlertDialogSignals()
 
         # Store settings
+        self.alert_on = alert_on
         self.alert_text = alert_text
         self.alert_color = alert_color
         self.alert_opacity = alert_opacity
@@ -92,8 +107,9 @@ class AlertDialog(QDialog):
         self.alert_sound_enabled = alert_sound_enabled
         self.alert_sound_file = alert_sound_file
         self.fullscreen_mode = fullscreen_mode
-        self.use_native_notifications = use_native_notifications
         self.on_notification_clicked = on_notification_clicked
+        self.launch_app_enabled = launch_app_enabled
+        self.launch_app_path = launch_app_path
         
         # State variables
         self.dismiss_timer = None
@@ -326,6 +342,11 @@ class AlertDialog(QDialog):
             self.raise_timer.timeout.connect(self._ensure_visibility)
             self.raise_timer.start(100)  # Check more frequently (every 100ms)
 
+        # Launch external app if configured
+        if self.launch_app_enabled and self.launch_app_path:
+            print("TRYING TO LAUNCH APP")
+            QTimer.singleShot(200, self._launch_external_app)  # Slight delay for better UX
+
     def _ensure_visibility(self):
         """Ensure the alert window remains visible across spaces in macOS."""
         # More aggressively raise the window and activate it
@@ -361,21 +382,23 @@ class AlertDialog(QDialog):
                 self.move(x, y)
     
     def closeEvent(self, event):
-        """Handle dialog close event."""
-        # Cancel dismiss timer if active
-        if self.dismiss_timer and self.dismiss_timer.isActive():
-            self.dismiss_timer.stop()
-        
-        # Stop the raise timer if active
-        if hasattr(self, 'raise_timer') and self.raise_timer.isActive():
-            self.raise_timer.stop()
-        
-        # If animations are enabled and not already fading out
-        if self.enable_animations and (not self.fade_animation or not self.fade_animation.state() == QPropertyAnimation.Running):
-            self._fade_out()
-            event.ignore()  # Ignore this close event, will be closed after animation
-        else:
+        # already fading? let Qt close the window for real
+        if getattr(self, "_is_fading", False):
+            self._is_fading = False            # reset guard
+            if hasattr(self, "raise_timer") and self.raise_timer.isActive():
+                self.raise_timer.stop()
             super().closeEvent(event)
+            return
+
+        # start a single fade-out, then really close
+        if self.enable_animations:
+            self._is_fading = True
+            self._fade_out()
+            self.fade_animation.finished.connect(self.close)   # will run branch above
+            event.ignore()
+            return
+
+        super().closeEvent(event)
     
     def _init_tray_icon(self):
         """Initialize system tray icon for notifications."""
@@ -536,7 +559,292 @@ class AlertDialog(QDialog):
             self.dismiss_timer.timeout.connect(self.close)
             self.dismiss_timer.start(int(self.alert_duration * 1000))
 
-# TODO - Only shows system notification
+    # TODO: behaviour if an app is already open?
+    def _launch_external_app(self):
+        """Launch and switch to the configured external app."""
+        if not self.launch_app_enabled or not self.launch_app_path:
+            return False
+
+        try:
+            print(f"Attempting to launch app: {self.launch_app_path}")
+
+            if platform.system() == 'Darwin':
+                return self._launch_macos_app()
+            elif platform.system() == 'Windows':
+                # Windows - use start command
+                os.startfile(self.launch_app_path)
+                return True
+            else:
+                # Linux - use xdg-open
+                subprocess.Popen(['xdg-open', self.launch_app_path])
+                return True
+        except Exception as e:
+            print(f"Error launching app: {e}")
+            return False
+
+    def _launch_macos_app(self):
+        """Launch and activate app on macOS using the appropriate method."""
+        try:
+            # Get bundle identifier from the app bundle
+            bundle_id = self._get_bundle_identifier(self.launch_app_path)
+
+            if PYOBJC_AVAILABLE and bundle_id:
+                # Use modern API for macOS 14+
+                return self._launch_with_yield_activation(bundle_id)
+            else:
+                # Fallback to AppleScript method
+                return self._launch_with_applescript()
+        except Exception as e:
+            print(f"Error in macOS launch: {e}")
+            # Try fallback method if primary fails
+            return self._launch_with_applescript()
+
+    def _get_bundle_identifier(self, app_path):
+        """Extract bundle identifier from .app bundle."""
+        try:
+            plist_path = os.path.join(app_path, 'Contents', 'Info.plist')
+            if os.path.exists(plist_path):
+                # Use plutil to read the bundle identifier
+                result = subprocess.run(
+                    ['plutil', '-extract', 'CFBundleIdentifier', 'raw', plist_path],
+                    capture_output=True, text=True
+                )
+                if result.returncode == 0:
+                    return result.stdout.strip()
+        except Exception as e:
+            print(f"Could not extract bundle identifier: {e}")
+        return None
+
+    def _launch_with_yield_activation(self, bundle_id):
+        """Launch app using modern macOS 14+ cooperative activation."""
+        try:
+            # First yield activation to the target app
+            # This tells macOS we're willing to give up focus
+            if hasattr(NSApp, 'yieldActivationToApplicationWithBundleIdentifier_'):
+                NSApp.yieldActivationToApplicationWithBundleIdentifier_(bundle_id)
+                print(f"Yielded activation to bundle: {bundle_id}")
+
+            # Get the shared workspace
+            workspace = NSWorkspace.sharedWorkspace()
+
+            # Check if app is already running by iterating through running applications
+            running_app = None
+            for app in workspace.runningApplications():
+                if app.bundleIdentifier() == bundle_id:
+                    running_app = app
+                    break
+
+            if running_app:
+                # App is already running, use aggressive activation
+                print(f"App already running, activating...")
+                return self._activate_running_app(running_app, bundle_id)
+
+            # App not running, launch it
+            print(f"App not running, launching...")
+
+            # Create NSURL for the app path
+            app_url = NSURL.fileURLWithPath_(self.launch_app_path)
+
+            # Launch the app and get the NSRunningApplication instance
+            launched_app = workspace.launchApplicationAtURL_options_configuration_error_(
+                app_url,
+                NSApplicationActivateAllWindows,  # Launch and activate
+                {},  # Empty configuration dictionary
+                None  # Error pointer (we'll ignore errors)
+            )
+
+            if launched_app and launched_app[0]:
+                print(f"Successfully launched: {launched_app}")
+                # Give it a moment to fully launch, then activate
+                QTimer.singleShot(300, lambda: self._activate_running_app(launched_app[0], bundle_id))
+                return True
+            else:
+                # Fallback to subprocess if NSWorkspace fails
+                print("NSWorkspace launch failed, using subprocess...")
+                subprocess.Popen(['open', self.launch_app_path])
+
+                # After launching, try to activate it after a short delay
+                QTimer.singleShot(500, lambda: self._try_activate_by_bundle_id(bundle_id))
+                return True
+
+        except Exception as e:
+            print(f"Error in yield activation method: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def _activate_running_app(self, running_app, bundle_id):
+        """Aggressively activate an already-running app using dock clicks."""
+        try:
+            app_name = os.path.basename(self.launch_app_path).replace('.app', '')
+
+            # First, yield activation if available
+            if hasattr(NSApp, 'yieldActivationToApplication_'):
+                NSApp.yieldActivationToApplication_(running_app)
+                print("Yielded activation to running app instance")
+
+            # Try standard activation first
+            success = running_app.activateWithOptions_(NSApplicationActivateAllWindows)
+            print(f"Standard activation: {success}")
+
+            # Always use dock double-click for running apps
+            print(f"Using dock double-click for {app_name}")
+            return self._activate_via_dock_double_click(app_name)
+
+        except Exception as e:
+            print(f"Error in activate running app: {e}")
+            return False
+
+    def _activate_via_dock_double_click(self, app_name):
+        """Simulate double-clicking the app in the dock."""
+        try:
+            # AppleScript to double-click the dock icon
+            applescript = f'''
+            tell application "System Events"
+                tell process "Dock"
+                    set dockItems to UI elements of list 1
+
+                    repeat with dockItem in dockItems
+                        if name of dockItem contains "{app_name}" or description of dockItem contains "{app_name}" then
+                            -- First click
+                            click dockItem
+                            delay 0.2
+                            -- Second click
+                            click dockItem
+                            return true
+                        end if
+                    end repeat
+                end tell
+            end tell
+
+            -- If dock click failed, try alternative method
+            tell application "{app_name}"
+                activate
+                try
+                    reopen  -- This simulates dock click behavior
+                end try
+            end tell
+            '''
+
+            result = subprocess.run(["osascript", "-e", applescript],
+                                    capture_output=True, text=True)
+
+            if result.returncode == 0:
+                print(f"Dock double-click successful for {app_name}")
+                return True
+            else:
+                print(f"Dock double-click error: {result.stderr}")
+                # Fallback to simpler method
+                return self._fallback_dock_click(app_name)
+
+        except Exception as e:
+            print(f"Error in dock double-click: {e}")
+            return False
+
+    def _fallback_dock_click(self, app_name):
+        """Fallback method using perform action."""
+        try:
+            # Simpler approach that might work better on some systems
+            applescript = f'''
+            tell application "System Events"
+                tell process "Dock"
+                    -- Find and click the dock item
+                    try
+                        click UI element "{app_name}" of list 1
+                        delay 0.1
+                        click UI element "{app_name}" of list 1
+                    on error
+                        -- Try with different matching
+                        set dockList to list 1
+                        repeat with i from 1 to count of UI elements of dockList
+                            set dockItem to UI element i of dockList
+                            try
+                                if name of dockItem contains "{app_name}" then
+                                    click dockItem
+                                    delay 0.1
+                                    click dockItem
+                                    exit repeat
+                                end if
+                            end try
+                        end repeat
+                    end try
+                end tell
+            end tell
+            '''
+
+            subprocess.run(["osascript", "-e", applescript], capture_output=True)
+            print(f"Fallback dock click attempted for {app_name}")
+            return True
+
+        except Exception as e:
+            print(f"Error in fallback dock click: {e}")
+            return False
+
+    def _try_activate_by_bundle_id(self, bundle_id):
+        """Try to activate an app by bundle ID after it has launched."""
+        try:
+            workspace = NSWorkspace.sharedWorkspace()
+
+            # Find the app in running applications
+            for app in workspace.runningApplications():
+                if app.bundleIdentifier() == bundle_id:
+                    print(f"Found app: {bundle_id}")
+                    # Use the aggressive activation method
+                    self._activate_running_app(app, bundle_id)
+                    break
+        except Exception as e:
+            print(f"Error in delayed activation: {e}")
+
+    def _launch_with_applescript(self):
+        """Fallback method using AppleScript."""
+        try:
+            # Extract app name for AppleScript
+            app_name = os.path.basename(self.launch_app_path)
+            app_name = app_name.replace('.app', '')
+
+            # Launch the app first
+            subprocess.Popen(['open', self.launch_app_path])
+
+            # Schedule activation after a delay
+            QTimer.singleShot(500, lambda: self._activate_macos_app(app_name))
+            return True
+        except Exception as e:
+            print(f"Error in AppleScript method: {e}")
+            return False
+
+    def _activate_macos_app(self, app_name):
+        """
+        Bring the launched application to the foreground on macOS.
+        This is the fallback method for older macOS versions.
+        """
+        try:
+            # Enhanced AppleScript that tries multiple approaches
+            applescript = f'''
+            -- First try to activate by name
+            try
+                tell application "{app_name}" to activate
+            on error
+                -- If that fails, try using System Events
+                tell application "System Events"
+                    try
+                        -- Find process by name
+                        set frontProcess to first process whose name is "{app_name}"
+                        set frontmost of frontProcess to true
+                    on error
+                        -- Last resort: try with .app extension
+                        try
+                            tell application "{app_name}.app" to activate
+                        end try
+                    end try
+                end tell
+            end try
+            '''
+            subprocess.run(["osascript", "-e", applescript], check=True)
+            print(f"Activated app via AppleScript: {app_name}")
+        except Exception as e:
+            print(f"Error activating app: {e}")
+
+    # TODO - Only shows system notification
     @pyqtSlot()
     def test_alert(self):
         """Show a test alert."""
@@ -553,7 +861,8 @@ class AlertDialog(QDialog):
         # Also show a notification for testing
         self._show_native_notification()
     
-    def update_settings(self, 
+    def update_settings(self,
+                       alert_on: Optional[bool] = None,
                        alert_text: Optional[str] = None,
                        alert_color: Optional[Tuple[int, int, int]] = None,
                        alert_opacity: Optional[float] = None,
@@ -564,12 +873,14 @@ class AlertDialog(QDialog):
                        alert_sound_enabled: Optional[bool] = None,
                        alert_sound_file: Optional[str] = None,
                        fullscreen_mode: Optional[bool] = None,
-                       use_native_notifications: Optional[bool] = None,
-                       on_notification_clicked: Optional[Callable] = None):
+                       on_notification_clicked: Optional[Callable] = None,
+                       launch_app_enabled: Optional[bool] = None,
+                       launch_app_path: Optional[str] = None):
         """
         Update alert settings.
         
         Args:
+            alert_on: Is alert selected?
             alert_text: New alert text
             alert_color: New background color
             alert_opacity: New opacity
@@ -583,23 +894,25 @@ class AlertDialog(QDialog):
             use_native_notifications: Whether to use native OS notifications
             on_notification_clicked: Callback when notification is clicked
         """
-        # Handle notification mode change first
-        notification_mode_changed = False
-        if use_native_notifications is not None and use_native_notifications != self.use_native_notifications:
-            self.use_native_notifications = use_native_notifications
-            notification_mode_changed = True
-            
-            # If switching to native notifications, we may need to close the dialog
-            if self.use_native_notifications and self.isVisible():
+        # Handle alert_on mode change
+        if alert_on is not None and alert_on != self.alert_on:
+            self.alert_on = alert_on
+
+            # If turning alerts off and the dialog is visible, close it
+            if not alert_on and self.isVisible():
                 self.close()
-                
-            # If switching from native notifications, we need to init UI
-            if not self.use_native_notifications and not hasattr(self, 'title_label'):
+
+            # Make sure UI is initialized if needed (similar to previous logic)
+            if not hasattr(self, 'title_label'):
                 self._init_ui()
-                
-            # Initialize tray icon if needed
-            if self.use_native_notifications and not self.tray_icon and self.parent() is not None:
+
+            # Make sure tray icon is initialized for notifications
+            if not self.tray_icon and self.parent() is not None:
                 self._init_tray_icon()
+
+            # Also update the config manager if available
+            if self.parent() and hasattr(self.parent(), 'config_manager'):
+                self.parent().config_manager.set("alert_on", alert_on)
                 
         # Update callback if provided
         if on_notification_clicked is not None:
@@ -614,13 +927,73 @@ class AlertDialog(QDialog):
                     lambda reason: self.on_notification_clicked() 
                     if reason == QSystemTrayIcon.Trigger else None
                 )
+
+        # Update app launch settings
+        if launch_app_enabled is not None:
+            self.launch_app_enabled = launch_app_enabled
+        if launch_app_path is not None:
+            self.launch_app_path = launch_app_path
+
+        # Store alert_on setting if provided - alert_on isnt directly used in "alert.py" it is handled in main_window
+        if alert_on is not None:
+            self.alert_on = alert_on  # Properly store the value
+            # Also update the config manager if available
+            if self.parent() and hasattr(self.parent(), 'config_manager'):
+                self.parent().config_manager.set("alert_on", alert_on)
         
         # Other settings that apply to both dialog and notification modes
         if alert_text is not None:
             self.alert_text = alert_text
             if hasattr(self, 'title_label'):
                 self.title_label.setText(alert_text)
-            
+
+        if alert_color is not None:
+            self.alert_color = alert_color
+            # Apply color change immediately for visual update
+            r, g, b = self.alert_color[2], self.alert_color[1], self.alert_color[0]
+            palette = self.palette()
+            palette.setColor(QPalette.Window, QColor(r, g, b))
+            self.setPalette(palette)
+            self.setAutoFillBackground(True)
+            if self.isVisible():
+                self.update()  # Force a repaint
+
+        if alert_opacity is not None:
+            self.alert_opacity = alert_opacity
+            if hasattr(self, 'opacity_effect'):
+                self.opacity_effect.setOpacity(alert_opacity)
+                if self.isVisible():
+                    self.update()  # Force a repaint
+
+        if alert_size is not None:
+            self.alert_size = alert_size
+            if not self.fullscreen_mode:  # Only resize if not in fullscreen
+                self.resize(*self.alert_size)
+                self._position_window()
+
+        if alert_position is not None:
+            self.alert_position = alert_position
+            if not self.fullscreen_mode:  # Only reposition if not in fullscreen #TODO: If in fullscreen we should disable the alert_position settings
+                self._position_window()
+
+                # If fullscreen mode changed, we need to recreate the window with new flags
+                if fullscreen_mode is not None and fullscreen_mode != self.fullscreen_mode:
+                    # Update the state variable FIRST before recreating UI
+                    self.fullscreen_mode = fullscreen_mode
+                    print(f"DEBUG: Updating fullscreen mode to {self.fullscreen_mode}")
+
+                    # Close and reopen to apply the new window flags
+                    if self.isVisible():
+                        visible = True
+                        self.close()
+                        # Recreate UI with new settings
+                        self._init_ui()
+                        if visible:
+                            self.show()
+                    else:
+                        # Just recreate UI with new settings
+                        self._init_ui()
+
         if alert_duration is not None:
             self.alert_duration = alert_duration
             
@@ -635,48 +1008,3 @@ class AlertDialog(QDialog):
                 except Exception as e:
                     print(f"Error loading sound: {e}")
                     self.sound = None
-        
-        # Settings only applicable to dialog mode
-        if not self.use_native_notifications:
-            if alert_color is not None:
-                self.alert_color = alert_color
-                r, g, b = self.alert_color[2], self.alert_color[1], self.alert_color[0]
-                palette = self.palette()
-                palette.setColor(QPalette.Window, QColor(r, g, b))
-                self.setPalette(palette)
-                
-            if alert_opacity is not None:
-                self.alert_opacity = alert_opacity
-                self.opacity_effect.setOpacity(alert_opacity)
-                
-            if alert_size is not None:
-                self.alert_size = alert_size
-                if not self.fullscreen_mode:  # Only resize if not in fullscreen
-                    self.resize(*self.alert_size)
-                    self._position_window()
-                
-            if alert_position is not None:
-                self.alert_position = alert_position
-                if not self.fullscreen_mode:  # Only reposition if not in fullscreen
-                    self._position_window()
-                
-            if enable_animations is not None:
-                self.enable_animations = enable_animations
-                    
-            # If fullscreen mode changed, we need to recreate the window with new flags
-            if fullscreen_mode is not None and fullscreen_mode != self.fullscreen_mode:
-                # Update the state variable FIRST before recreating UI
-                self.fullscreen_mode = fullscreen_mode
-                print(f"DEBUG: Updating fullscreen mode to {self.fullscreen_mode}")
-                
-                # Close and reopen to apply the new window flags
-                if self.isVisible():
-                    visible = True
-                    self.close()
-                    # Recreate UI with new settings
-                    self._init_ui()
-                    if visible:
-                        self.show()
-                else:
-                    # Just recreate UI with new settings
-                    self._init_ui()
