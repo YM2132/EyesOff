@@ -61,12 +61,14 @@ class ConfigManager:
             "alert_color": (0, 0, 255),  # BGR Red
             "alert_opacity": 0.8,
             "alert_size": (600, 300),
-            "alert_position": "center",
             "enable_animations": True,
             "alert_sound_enabled": False,
             "alert_sound_file": "",
             "alert_text": "EYES OFF!!!",
             "fullscreen_mode": False,  # Whether to show alert in fullscreen
+            # app launch alert setting
+            "launch_app_enabled": False,
+            "launch_app_path": "",
             
             # Application settings
             "debounce_time": 1.0,
@@ -88,7 +90,7 @@ class ConfigManager:
             "snapshot_path": f"{get_snapshots_dir()}",
 
             # App version
-            "app_version": "1.0.1",
+            "app_version": "1.1.0",
         }
     
     def _load_config(self):
