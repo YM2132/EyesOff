@@ -2,20 +2,13 @@ import platform
 import time
 import subprocess
 import os
-from pathlib import Path
 from typing import Tuple, Optional, Callable
-
-import ctypes, os, subprocess
-from ctypes import util, byref
 
 from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QSize, QObject, pyqtSlot, pyqtSignal
 from PyQt5.QtGui import QFont, QColor, QPalette, QIcon
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QLabel, QPushButton,
 							 QGraphicsOpacityEffect, QDesktopWidget, QApplication,
 							 QSystemTrayIcon)
-
-import subprocess, ctypes, time
-from ctypes import util, byref
 
 # Try to import QtMultimedia for sound support
 try:
@@ -41,6 +34,16 @@ if platform.system() == 'Darwin':
             NATIVE_NOTIFICATION_SUPPORT = False
 else:
     NATIVE_NOTIFICATION_SUPPORT = False
+
+if platform.system() == 'Darwin':
+    try:
+        import objc
+        from Cocoa import NSApp, NSRunningApplication, NSWorkspace, NSURL
+        from AppKit import NSApplicationActivateAllWindows
+        PYOBJC_AVAILABLE = True
+    except ImportError:
+        PYOBJC_AVAILABLE = False
+        print("PyObjC not available - falling back to AppleScript method")
 
 class AlertDialogSignals(QObject):
     """Signals for alert dialog"""
@@ -556,127 +559,290 @@ class AlertDialog(QDialog):
             self.dismiss_timer.timeout.connect(self.close)
             self.dismiss_timer.start(int(self.alert_duration * 1000))
 
+    # TODO: behaviour if an app is already open?
     def _launch_external_app(self):
-        """Launch and activate the configured external app."""
+        """Launch and switch to the configured external app."""
         if not self.launch_app_enabled or not self.launch_app_path:
             return False
 
         try:
-            print(f"Attempting to launch/activate app: {self.launch_app_path}")
-            app_path = self.launch_app_path
-            app_name = os.path.basename(app_path).replace('.app', '')
+            print(f"Attempting to launch app: {self.launch_app_path}")
 
-            if platform.system() == 'Darwin':  # macOS
-                return self._activate_macos_app(app_path, app_name)
+            if platform.system() == 'Darwin':
+                return self._launch_macos_app()
             elif platform.system() == 'Windows':
+                # Windows - use start command
                 os.startfile(self.launch_app_path)
                 return True
-            else:  # Linux
+            else:
+                # Linux - use xdg-open
                 subprocess.Popen(['xdg-open', self.launch_app_path])
                 return True
-
         except Exception as e:
             print(f"Error launching app: {e}")
             return False
 
-    def _activate_macos_app(self, app_path: str, app_name: str) -> bool:
-        """
-        Activate macOS app with dock-click as primary method.
-        Works reliably even from desktop/home screen.
-        """
-        import time, subprocess
-        from AppKit import (
-            NSBundle, NSWorkspace, NSRunningApplication,
-            NSApplicationActivateIgnoringOtherApps,
-            NSApplicationActivateAllWindows
-        )
+    def _launch_macos_app(self):
+        """Launch and activate app on macOS using the appropriate method."""
+        try:
+            # Get bundle identifier from the app bundle
+            bundle_id = self._get_bundle_identifier(self.launch_app_path)
 
-        # Helper to check which app is frontmost
-        def frontmost_id():
-            fw = NSWorkspace.sharedWorkspace().frontmostApplication()
-            return fw.bundleIdentifier() if fw else ""
+            if PYOBJC_AVAILABLE and bundle_id:
+                # Use modern API for macOS 14+
+                return self._launch_with_yield_activation(bundle_id)
+            else:
+                # Fallback to AppleScript method
+                return self._launch_with_applescript()
+        except Exception as e:
+            print(f"Error in macOS launch: {e}")
+            # Try fallback method if primary fails
+            return self._launch_with_applescript()
 
-        # UI-script the Dock icon click
-        def dock_click(name):
-            script = f'''
-                tell application "System Events"
-                    click UI element "{name}" of list 1 of application process "Dock"
-                end tell
-            '''
-            try:
-                subprocess.run(["osascript", "-e", script], check=True)
-                return True
-            except subprocess.CalledProcessError:
-                return False
+    def _get_bundle_identifier(self, app_path):
+        """Extract bundle identifier from .app bundle."""
+        try:
+            plist_path = os.path.join(app_path, 'Contents', 'Info.plist')
+            if os.path.exists(plist_path):
+                # Use plutil to read the bundle identifier
+                result = subprocess.run(
+                    ['plutil', '-extract', 'CFBundleIdentifier', 'raw', plist_path],
+                    capture_output=True, text=True
+                )
+                if result.returncode == 0:
+                    return result.stdout.strip()
+        except Exception as e:
+            print(f"Could not extract bundle identifier: {e}")
+        return None
 
-        # Ensure app is running before we try to activate it
-        ws = NSWorkspace.sharedWorkspace()
+    def _launch_with_yield_activation(self, bundle_id):
+        """Launch app using modern macOS 14+ cooperative activation."""
+        try:
+            # First yield activation to the target app
+            # This tells macOS we're willing to give up focus
+            if hasattr(NSApp, 'yieldActivationToApplicationWithBundleIdentifier_'):
+                NSApp.yieldActivationToApplicationWithBundleIdentifier_(bundle_id)
+                print(f"Yielded activation to bundle: {bundle_id}")
 
-        # Get bundle ID if possible
-        bundle = NSBundle.bundleWithPath_(app_path)
-        bundle_id = bundle.bundleIdentifier() if bundle else None
+            # Get the shared workspace
+            workspace = NSWorkspace.sharedWorkspace()
 
-        # Check if app is already running
-        target_app = None
-        if bundle_id:
-            apps = NSRunningApplication.runningApplicationsWithBundleIdentifier_(bundle_id)
-            if apps:
-                target_app = apps[0]
-
-        if not target_app:
-            for app in ws.runningApplications():
-                if app.localizedName().lower() == app_name.lower():
-                    target_app = app
+            # Check if app is already running by iterating through running applications
+            running_app = None
+            for app in workspace.runningApplications():
+                if app.bundleIdentifier() == bundle_id:
+                    running_app = app
                     break
 
-        # Launch if needed
-        if not target_app:
-            subprocess.Popen(["open", "-a", app_path])
-            time.sleep(0.4)  # Wait for launch
+            if running_app:
+                # App is already running, use aggressive activation
+                print(f"App already running, activating...")
+                return self._activate_running_app(running_app, bundle_id)
 
-            # Try to find the app again
-            if bundle_id:
-                apps = NSRunningApplication.runningApplicationsWithBundleIdentifier_(bundle_id)
-                if apps:
-                    target_app = apps[0]
+            # App not running, launch it
+            print(f"App not running, launching...")
 
-        # Get the target ID for verification
-        target_id = bundle_id or (target_app.bundleIdentifier() if target_app else None)
-        if not target_id:
-            return False  # No way to identify the app
+            # Create NSURL for the app path
+            app_url = NSURL.fileURLWithPath_(self.launch_app_path)
 
-        # METHOD 1a: AppKit - You need both AppKit and dock-click to make this work # TODO: Try switch dock_click for another AppKit call
-        if target_app:
-            ok = target_app.activateWithOptions_(
-                NSApplicationActivateIgnoringOtherApps |
-                NSApplicationActivateAllWindows
+            # Launch the app and get the NSRunningApplication instance
+            launched_app = workspace.launchApplicationAtURL_options_configuration_error_(
+                app_url,
+                NSApplicationActivateAllWindows,  # Launch and activate
+                {},  # Empty configuration dictionary
+                None  # Error pointer (we'll ignore errors)
             )
-            time.sleep(0.1)
-            if ok and frontmost_id() == target_id:
-                print("Successfully activated via AppKit")
 
-        # METHOD 1b: Try dock-click first (most reliable from desktop)
-        if dock_click(app_name):
-            time.sleep(0.2)
-            if frontmost_id() == target_id:
-                print("Successfully activated via Dock click")
+            if launched_app and launched_app[0]:
+                print(f"Successfully launched: {launched_app}")
+                # Give it a moment to fully launch, then activate
+                QTimer.singleShot(300, lambda: self._activate_running_app(launched_app[0], bundle_id))
+                return True
+            else:
+                # Fallback to subprocess if NSWorkspace fails
+                print("NSWorkspace launch failed, using subprocess...")
+                subprocess.Popen(['open', self.launch_app_path])
+
+                # After launching, try to activate it after a short delay
+                QTimer.singleShot(500, lambda: self._try_activate_by_bundle_id(bundle_id))
                 return True
 
-        # TODO still doesnt work when we are on safari on home screen, maybe need 3 calls? ALSO add in permissions request for .app
+        except Exception as e:
+            print(f"Error in yield activation method: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
 
-        # METHOD 3: Last resort AppleScript
-        script = f'''
-        tell application "{app_name}"
-            activate
-        end tell
-        '''
-        subprocess.run(["osascript", "-e", script])
-        time.sleep(0.2)
+    def _activate_running_app(self, running_app, bundle_id):
+        """Aggressively activate an already-running app using dock clicks."""
+        try:
+            app_name = os.path.basename(self.launch_app_path).replace('.app', '')
 
-        # Verify final result
-        return frontmost_id() == target_id
+            # First, yield activation if available
+            if hasattr(NSApp, 'yieldActivationToApplication_'):
+                NSApp.yieldActivationToApplication_(running_app)
+                print("Yielded activation to running app instance")
 
-        # TODO: Figure out which of these makes the switching work i think its the dock-click method, simplify code to use that method + one other which works in most cases if users clicks no, (i.e. only the swithing from desktop -> windowed app doesnt work). UI changes - we need to ask for permissions from users for accessibility, we should include some text which explains exaclty why we need it and what it's used for
+            # Try standard activation first
+            success = running_app.activateWithOptions_(NSApplicationActivateAllWindows)
+            print(f"Standard activation: {success}")
+
+            # Always use dock double-click for running apps
+            print(f"Using dock double-click for {app_name}")
+            return self._activate_via_dock_double_click(app_name)
+
+        except Exception as e:
+            print(f"Error in activate running app: {e}")
+            return False
+
+    def _activate_via_dock_double_click(self, app_name):
+        """Simulate double-clicking the app in the dock."""
+        try:
+            # AppleScript to double-click the dock icon
+            applescript = f'''
+            tell application "System Events"
+                tell process "Dock"
+                    set dockItems to UI elements of list 1
+
+                    repeat with dockItem in dockItems
+                        if name of dockItem contains "{app_name}" or description of dockItem contains "{app_name}" then
+                            -- First click
+                            click dockItem
+                            delay 0.2
+                            -- Second click
+                            click dockItem
+                            return true
+                        end if
+                    end repeat
+                end tell
+            end tell
+
+            -- If dock click failed, try alternative method
+            tell application "{app_name}"
+                activate
+                try
+                    reopen  -- This simulates dock click behavior
+                end try
+            end tell
+            '''
+
+            result = subprocess.run(["osascript", "-e", applescript],
+                                    capture_output=True, text=True)
+
+            if result.returncode == 0:
+                print(f"Dock double-click successful for {app_name}")
+                return True
+            else:
+                print(f"Dock double-click error: {result.stderr}")
+                # Fallback to simpler method
+                return self._fallback_dock_click(app_name)
+
+        except Exception as e:
+            print(f"Error in dock double-click: {e}")
+            return False
+
+    def _fallback_dock_click(self, app_name):
+        """Fallback method using perform action."""
+        try:
+            # Simpler approach that might work better on some systems
+            applescript = f'''
+            tell application "System Events"
+                tell process "Dock"
+                    -- Find and click the dock item
+                    try
+                        click UI element "{app_name}" of list 1
+                        delay 0.1
+                        click UI element "{app_name}" of list 1
+                    on error
+                        -- Try with different matching
+                        set dockList to list 1
+                        repeat with i from 1 to count of UI elements of dockList
+                            set dockItem to UI element i of dockList
+                            try
+                                if name of dockItem contains "{app_name}" then
+                                    click dockItem
+                                    delay 0.1
+                                    click dockItem
+                                    exit repeat
+                                end if
+                            end try
+                        end repeat
+                    end try
+                end tell
+            end tell
+            '''
+
+            subprocess.run(["osascript", "-e", applescript], capture_output=True)
+            print(f"Fallback dock click attempted for {app_name}")
+            return True
+
+        except Exception as e:
+            print(f"Error in fallback dock click: {e}")
+            return False
+
+    def _try_activate_by_bundle_id(self, bundle_id):
+        """Try to activate an app by bundle ID after it has launched."""
+        try:
+            workspace = NSWorkspace.sharedWorkspace()
+
+            # Find the app in running applications
+            for app in workspace.runningApplications():
+                if app.bundleIdentifier() == bundle_id:
+                    print(f"Found app: {bundle_id}")
+                    # Use the aggressive activation method
+                    self._activate_running_app(app, bundle_id)
+                    break
+        except Exception as e:
+            print(f"Error in delayed activation: {e}")
+
+    def _launch_with_applescript(self):
+        """Fallback method using AppleScript."""
+        try:
+            # Extract app name for AppleScript
+            app_name = os.path.basename(self.launch_app_path)
+            app_name = app_name.replace('.app', '')
+
+            # Launch the app first
+            subprocess.Popen(['open', self.launch_app_path])
+
+            # Schedule activation after a delay
+            QTimer.singleShot(500, lambda: self._activate_macos_app(app_name))
+            return True
+        except Exception as e:
+            print(f"Error in AppleScript method: {e}")
+            return False
+
+    def _activate_macos_app(self, app_name):
+        """
+        Bring the launched application to the foreground on macOS.
+        This is the fallback method for older macOS versions.
+        """
+        try:
+            # Enhanced AppleScript that tries multiple approaches
+            applescript = f'''
+            -- First try to activate by name
+            try
+                tell application "{app_name}" to activate
+            on error
+                -- If that fails, try using System Events
+                tell application "System Events"
+                    try
+                        -- Find process by name
+                        set frontProcess to first process whose name is "{app_name}"
+                        set frontmost of frontProcess to true
+                    on error
+                        -- Last resort: try with .app extension
+                        try
+                            tell application "{app_name}.app" to activate
+                        end try
+                    end try
+                end tell
+            end try
+            '''
+            subprocess.run(["osascript", "-e", applescript], check=True)
+            print(f"Activated app via AppleScript: {app_name}")
+        except Exception as e:
+            print(f"Error activating app: {e}")
 
     # TODO - Only shows system notification
     @pyqtSlot()
