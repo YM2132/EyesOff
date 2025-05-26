@@ -44,7 +44,7 @@ class ConfigManager:
         """
         return {
             # Detector settings
-            "detector_type": "yunet",
+            "detector_type": "gaze",
             "model_path": f"{resource_path('models/face_detection_yunet_2023mar.onnx')}",
             "confidence_threshold": 0.75,
             "face_threshold": 1,
