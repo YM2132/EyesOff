@@ -23,7 +23,15 @@ if platform.system() == 'Darwin':
         # Check for native notification support via PyObjC
         import Foundation
         import UserNotifications
+
+        from UserNotifications import (
+            UNUserNotificationCenter,
+            UNAuthorizationOptionAlert,
+            UNAuthorizationOptionSound
+        )
+
         NATIVE_NOTIFICATION_SUPPORT = True
+
     except ImportError:
         try:
             # Fall back to AppleScript if PyObjC is not available
@@ -419,31 +427,20 @@ class AlertDialog(QDialog):
             )
 
     def request_notification_permissions(self):
-        """
-        Request permission to display notifications on macOS
-        """
-        if platform.system() == 'Darwin' and NATIVE_NOTIFICATION_SUPPORT:
-            try:
-                from Foundation import NSDate
-                from UserNotifications import (
-                    UNUserNotificationCenter,
-                    UNAuthorizationOptions
-                )
+        """Request permission to display notifications on macOS"""
+    if platform.system() == 'Darwin' and NATIVE_NOTIFICATION_SUPPORT:
+        try:
+            # Define options (alert, sound)
+            options = UNAuthorizationOptionAlert | UNAuthorizationOptionSound
 
-                # Define options (alert, sound, badge)
-                options = (
-                        UNAuthorizationOptions.UNAuthorizationOptionAlert |
-                        UNAuthorizationOptions.UNAuthorizationOptionSound
-                )
-
-                # Request authorization
-                center = UNUserNotificationCenter.currentNotificationCenter()
-                center.requestAuthorizationWithOptions_completionHandler_(
-                    options,
-                    lambda granted, error: print(f"Notification permission granted: {granted}")
-                )
-            except Exception as e:
-                print(f"Error requesting notification permissions: {e}")
+            # Request authorization
+            center = UNUserNotificationCenter.currentNotificationCenter()
+            center.requestAuthorizationWithOptions_completionHandler_(
+                options,
+                lambda granted, error: print(f"Notification permission granted: {granted}")
+            )
+        except Exception as e:
+            print(f"Error requesting notification permissions: {e}")
 
     def _show_macos_notification(self, title, subtitle, body, sound_name=None):
         """
