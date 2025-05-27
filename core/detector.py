@@ -124,10 +124,12 @@ class FaceDetector:
                 self.confidence_threshold = settings['confidence_threshold']
                 recreate = True
 
-            if 'gaze_threshold' in settings and hasattr(self.detector, 'gaze_threshold'):
-                # Only update if the detector is a gaze detector with this property
-                self.detector.gaze_threshold = settings['gaze_threshold']
-            
+            if 'gaze_threshold' in settings:
+                self.gaze_threshold = settings["gaze_threshold"]
+                if hasattr(self.detector, "gaze_threshold"):
+                    # Only update if the detector is a gaze detector with this property
+                    self.detector.gaze_threshold = self.gaze_threshold
+
             if recreate:
                 self._create_detector()
                 
