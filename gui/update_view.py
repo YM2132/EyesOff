@@ -1,9 +1,12 @@
 import os
+import sys
 import time
 from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout,
 							 QPushButton, QDialog, QSizePolicy, QSpacerItem,
 							 QProgressBar, QMessageBox, QScrollArea, QFrame)
+
+from utils.platform import get_platform_manager
 
 class UpdateView(QDialog):
 	"""
@@ -14,299 +17,302 @@ class UpdateView(QDialog):
 	# Signals to communicate user's choice
 	update_accepted = pyqtSignal()
 	update_declined = pyqtSignal()
-	
-	# States for update process
-	STATE_INITIAL = 0
-	STATE_DOWNLOADING = 1
-	STATE_VERIFYING = 2
-	STATE_VERIFIED = 3
-	STATE_VERIFICATION_FAILED = 4
 
-	def __init__(self, current_version, new_version, parent=None):
+	def __init__(self, manager, parent=None, version_info=None):
 		super().__init__(parent)
-		self.current_version = current_version
-		self.new_version = new_version
-		self.state = self.STATE_INITIAL
-		self.file_path = None
-		self.verification_error = None
-
+		self.manager = manager  # Store the update manager instance
+		self.platform_manager = get_platform_manager()
+		self.version_info = version_info or "(Unknown version)"
+		self.file_path = None  # To store the downloaded file path
+		
+		# Track download state
+		self.download_started = False
+		self.download_completed = False
+		self.download_failed = False
+		
+		# Set window properties
 		self.setWindowTitle("Update Available")
-		self.setFixedWidth(400)  # Increased width for verification UI
-		self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint)
+		self.setModal(True)  # Make it a modal dialog
+		self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
+		
+		# Fixed size for the dialog
+		self.setFixedSize(500, 400)
+		
+		# Initialize UI
+		self._init_ui()
 
-		self.init_ui()
+		# Connect to download signals
+		if self.manager and hasattr(self.manager, 'thread'):
+			self.manager.thread.download_progress.connect(self.update_download_progress)
+			self.manager.thread.download_completed.connect(self.download_complete)
+			self.manager.thread.verification_started.connect(self.verification_started)
+			self.manager.thread.verification_success.connect(self.verification_success)
+			self.manager.thread.verification_failed.connect(self.verification_failed)
 
-	def init_ui(self):
+	def _init_ui(self):
+		"""Initialize the UI components."""
 		# Main layout
 		main_layout = QVBoxLayout()
-		main_layout.setSpacing(10)
-
-		# Title label
+		main_layout.setContentsMargins(30, 30, 30, 30)
+		main_layout.setSpacing(20)
+		
+		# Title
 		title_label = QLabel("Update Available")
-		title_label.setStyleSheet("font-size: 16px; font-weight: bold;")
 		title_label.setAlignment(Qt.AlignCenter)
+		title_label.setStyleSheet("font-size: 24px; font-weight: bold;")
 		main_layout.addWidget(title_label)
-
-		# Version information
+		
+		# Current version and new version info
 		version_layout = QVBoxLayout()
-
-		current_version_label = QLabel(f"Current version: {self.current_version}")
-		new_version_label = QLabel(f"New version: {self.new_version}")
-
-		version_layout.addWidget(current_version_label)
-		version_layout.addWidget(new_version_label)
+		version_layout.setSpacing(10)
+		
+		current_version = self.manager.current_version if self.manager else "Unknown"
+		current_label = QLabel(f"Current Version: {current_version}")
+		current_label.setAlignment(Qt.AlignCenter)
+		current_label.setStyleSheet("font-size: 14px;")
+		version_layout.addWidget(current_label)
+		
+		new_label = QLabel(f"New Version: {self.version_info}")
+		new_label.setAlignment(Qt.AlignCenter)
+		new_label.setStyleSheet("font-size: 14px; color: #2E7D32; font-weight: bold;")
+		version_layout.addWidget(new_label)
+		
 		main_layout.addLayout(version_layout)
-
-		# Question label
-		self.question_label = QLabel("Would you like to update now?")
-		self.question_label.setAlignment(Qt.AlignCenter)
-		main_layout.addWidget(self.question_label)
-
-		# Progress section (initially hidden)
-		self.progress_section = QWidget()
-		progress_layout = QVBoxLayout(self.progress_section)
-		progress_layout.setContentsMargins(0, 0, 0, 0)
 		
-		# Progress label and bar
-		self.progress_label = QLabel("Downloading update...")
-		self.progress_label.setAlignment(Qt.AlignCenter)
-		self.progress_bar = QProgressBar()
-		self.progress_bar.setRange(0, 100)
-		self.progress_bar.setValue(0)
-		
-		progress_layout.addWidget(self.progress_label)
-		progress_layout.addWidget(self.progress_bar)
-		
-		# Verification status section
-		self.verification_widget = QWidget()
-		verification_layout = QVBoxLayout(self.verification_widget)
-		verification_layout.setContentsMargins(0, 5, 0, 5)
-		
-		self.verification_label = QLabel("Verifying download...")
-		self.verification_label.setAlignment(Qt.AlignCenter)
-		self.verification_label.setStyleSheet("font-weight: bold;")
-		verification_layout.addWidget(self.verification_label)
-		
-		# Status details
-		self.verification_details = QLabel("Checking file integrity...")
-		self.verification_details.setAlignment(Qt.AlignCenter)
-		self.verification_details.setWordWrap(True)
-		verification_layout.addWidget(self.verification_details)
-		
-		progress_layout.addWidget(self.verification_widget)
-		self.verification_widget.setVisible(False)
-		
-		# Add progress section to main layout
-		main_layout.addWidget(self.progress_section)
-		self.progress_section.setVisible(False)
-
-		# Buttons layout
-		self.buttons_layout = QHBoxLayout()
-
-		# Add a spacer to push buttons to the center
-		self.buttons_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
-
-		# Yes button
-		self.yes_button = QPushButton("Yes")
-		self.yes_button.clicked.connect(self._on_yes_clicked)
-		self.buttons_layout.addWidget(self.yes_button)
-
-		# No button
-		self.no_button = QPushButton("No")
-		self.no_button.clicked.connect(self._on_no_clicked)
-		self.buttons_layout.addWidget(self.no_button)
-
-		# Add another spacer
-		self.buttons_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
-
-		main_layout.addLayout(self.buttons_layout)
-
-		self.setLayout(main_layout)
-
-	def _on_yes_clicked(self):
-		self._show_download_progress()
-
-		from PyQt5.QtCore import QTimer
-		QTimer.singleShot(100, self.update_accepted.emit)
-
-	def _on_no_clicked(self):
-		self.update_declined.emit()
-		self.reject()  # Close the dialog
-
-	def _show_download_progress(self):
-		"""Switch the UI to download progress mode."""
-		self.state = self.STATE_DOWNLOADING
-		
-		# Hide the question and buttons
-		self.question_label.setVisible(False)
-		self.yes_button.setVisible(False)
-		self.no_button.setVisible(False)
-
-		# Show progress section
-		self.progress_section.setVisible(True)
-		self.verification_widget.setVisible(False)
-		self.progress_label.setText("Downloading update...")
-		
-		# Update window title
-		self.setWindowTitle("Downloading Update")
-
-	def update_progress(self, progress):
-		"""Update the progress bar value."""
-		self.progress_bar.setValue(progress)
-
-		# If download is complete, change the message
-		if progress >= 100:
-			self.progress_label.setText("Download complete!")
-			
-	def show_verification_started(self):
-		"""Show that verification has started."""
-		self.state = self.STATE_VERIFYING
-		self.setWindowTitle("Verifying Update")
-		self.verification_widget.setVisible(True)
-		self.verification_label.setText("Verifying download...")
-		self.verification_details.setText("Checking file integrity and authenticity...")
-
-	def show_verification_success(self, file_path, local_checksum, remote_checksum):
-		"""Show that verification was successful."""
-		self.state = self.STATE_VERIFIED
-		self.file_path = file_path
-
-		# Create container for verification info with simplified layout
-		container = QWidget()
-		layout = QVBoxLayout(container)
-		layout.setContentsMargins(0, 0, 0, 0)
-		layout.setSpacing(3)
-
-		# Update verification status and details
-		self.verification_label.setText("Verification Successful")
-		self.verification_label.setStyleSheet("font-weight: bold; color: green;")
-		self.verification_details.setText(f"The downloaded update has been verified as authentic and safe to install.")
-		self.verification_details.setWordWrap(True)  # Enable soft text wrapping
-
-		# Add the labels to the container
-		layout.addWidget(self.verification_label)
-		layout.addWidget(self.verification_details)
-
-		# Create scroll area and configure it
-		scroll = QScrollArea()
-		scroll.setWidgetResizable(True)
-		scroll.setFrameShape(QFrame.NoFrame)
-		scroll.setWidget(container)
-		scroll.setMinimumHeight(80)
-
-		# Add to main layout
-		self.layout().insertWidget(4, scroll)
-		
-	def show_verification_failed(self, error_message):
-		"""Show that verification failed."""
-		self.state = self.STATE_VERIFICATION_FAILED
-		self.verification_error = error_message
-		
-		self.verification_label.setText("Verification Failed")
-		self.verification_label.setStyleSheet("font-weight: bold; color: red;")
-		self.verification_details.setText(
-			f"The downloaded update could not be verified as authentic. "
-			f"This could indicate tampering or corruption.\n\nError: {error_message}"
-		)
-		
-		# Change progress bar to red to indicate failure
-		self.progress_bar.setStyleSheet("QProgressBar::chunk { background-color: #F44336; }")
-		
-		# Show a close button
-		self._reset_buttons()
-		close_button = QPushButton("Close")
-		close_button.clicked.connect(self.reject)
-		self.buttons_layout.addWidget(close_button)
-
-	def _reset_buttons(self):
-		"""Clear all buttons from the button layout."""
-		for i in reversed(range(self.buttons_layout.count())):
-			item = self.buttons_layout.itemAt(i)
-			if item:
-				if item.widget():
-					item.widget().deleteLater()
-				elif item.spacerItem():
-					self.buttons_layout.removeItem(item)
-					
-	def download_complete(self, file_path):
-		"""Called when download is complete and verification succeeded."""
-		
-		if self.state == self.STATE_VERIFICATION_FAILED:
-			# Don't proceed if verification failed
-			return
-		
-		self.file_path = file_path  # Store the file path for later use
-		
-		# Set progress to 100% just in case
-		# self.progress_bar.setValue(100)
-		
-		# Clear existing buttons
-		self._reset_buttons()
-		
-		# Create installation instructions label
-		instruction_text = (
-			"To install the verified update:\n\n"
-			"1. Click 'Open Installer'\n"
-			"2. Quit this application when prompted\n"
-			"3. Drag the new version to Applications folder\n"
-			"4. Restart the application"
-		)
-		
-		# Create scrollable area for instructions
-		self.instruction_label = QLabel(instruction_text)
-		self.instruction_label.setWordWrap(True)
-		self.instruction_label.setStyleSheet("margin: 10px;")
-		
-		# Create a scroll area
+		# Scrollable area for changelog/info
 		scroll_area = QScrollArea()
 		scroll_area.setWidgetResizable(True)
-		scroll_area.setFrameShape(QFrame.NoFrame)  # Remove the frame border
-		scroll_area.setWidget(self.instruction_label)
-		scroll_area.setMinimumHeight(100)  # Set minimum height
+		scroll_area.setMaximumHeight(150)
 		
-		# Add the scroll area to the layout
-		self.layout().insertWidget(3, scroll_area)
+		# Message/info container
+		self.message_container = QWidget()
+		message_layout = QVBoxLayout(self.message_container)
 		
-		# Add buttons with spacers for centering
-		self.buttons_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+		# Message label
+		self.message_label = QLabel()
+		self.message_label.setWordWrap(True)
+		self.message_label.setAlignment(Qt.AlignTop)
+		self.message_label.setStyleSheet("font-size: 13px; padding: 10px;")
+		self.message_label.setText(
+			"A new version of EyesOff is available!\n\n"
+			"Would you like to download and install this update?\n\n"
+			"The update process will:\n"
+			"• Download the new version\n"
+			"• Verify the download integrity\n"
+			"• Guide you through installation"
+		)
+		message_layout.addWidget(self.message_label)
 		
-		# Add "Open Installer" button
-		open_button = QPushButton("Open Installer")
-		open_button.clicked.connect(self._open_installer)
-		self.buttons_layout.addWidget(open_button)
+		scroll_area.setWidget(self.message_container)
+		main_layout.addWidget(scroll_area)
 		
-		# Add "Update Later" button
-		later_button = QPushButton("Update Later")
-		later_button.clicked.connect(self.accept)
-		self.buttons_layout.addWidget(later_button)
+		# Progress bar (hidden initially)
+		self.progress_bar = QProgressBar()
+		self.progress_bar.setVisible(False)
+		self.progress_bar.setStyleSheet("""
+			QProgressBar {
+				border: 1px solid #ccc;
+				border-radius: 5px;
+				text-align: center;
+				height: 25px;
+			}
+			QProgressBar::chunk {
+				background-color: #4CAF50;
+				border-radius: 4px;
+			}
+		""")
+		main_layout.addWidget(self.progress_bar)
 		
-		self.buttons_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+		# Status label (hidden initially)
+		self.status_label = QLabel()
+		self.status_label.setVisible(False)
+		self.status_label.setAlignment(Qt.AlignCenter)
+		self.status_label.setStyleSheet("font-size: 12px; color: #666;")
+		main_layout.addWidget(self.status_label)
+		
+		# Spacer
+		main_layout.addItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
+		
+		# Button layout
+		button_layout = QHBoxLayout()
+		button_layout.setSpacing(20)
+		
+		# No button
+		self.no_button = QPushButton("Later")
+		self.no_button.setMinimumSize(120, 40)
+		self.no_button.clicked.connect(self.on_no_clicked)
+		button_layout.addWidget(self.no_button)
+		
+		button_layout.addStretch()
+		
+		# Yes button
+		self.yes_button = QPushButton("Download Update")
+		self.yes_button.setMinimumSize(120, 40)
+		self.yes_button.setStyleSheet("""
+			QPushButton {
+				background-color: #4CAF50;
+				color: white;
+				border: none;
+				border-radius: 5px;
+				font-weight: bold;
+			}
+			QPushButton:hover {
+				background-color: #45a049;
+			}
+			QPushButton:pressed {
+				background-color: #3d8b40;
+			}
+		""")
+		self.yes_button.clicked.connect(self.on_yes_clicked)
+		button_layout.addWidget(self.yes_button)
+		
+		main_layout.addLayout(button_layout)
+		
+		# Set the layout
+		self.setLayout(main_layout)
 
-	def _open_installer(self):
-		"""Open the installer and show quit reminder."""
-		import subprocess
-		import sys
-		from PyQt5.QtWidgets import QMessageBox
+	def on_yes_clicked(self):
+		"""Handle Yes button click - start download."""
+		if not self.download_started:
+			self.download_started = True
+			
+			# Update UI for download mode
+			self.yes_button.setEnabled(False)
+			self.yes_button.setText("Downloading...")
+			self.no_button.setText("Cancel")
+			
+			# Show progress bar and status
+			self.progress_bar.setVisible(True)
+			self.status_label.setVisible(True)
+			self.status_label.setText("Starting download...")
+			
+			# Update message
+			self.message_label.setText(
+				"Downloading update...\n\n"
+				"Please wait while the update is downloaded and verified.\n"
+				"This may take a few minutes depending on your connection speed."
+			)
+			
+			# Emit the signal to trigger download
+			self.update_accepted.emit()
+			if self.manager and hasattr(self.manager, 'thread'):
+				self.manager.thread.start_download.emit()
+		elif self.download_completed and self.file_path:
+			# If download is complete and Install button is clicked
+			self.install_update()
 
-		# Open the DMG file
-		if sys.platform == "darwin":
-			subprocess.Popen(['open', self.file_path])
-
-			# Show a reminder to quit the app
-			msg = QMessageBox(self)
-			msg.setWindowTitle("Quit Application")
-			msg.setText("Please quit this application to complete the installation.")
-			msg.setInformativeText("After quitting, drag EyesOff to the application folder :)")
-			msg.setStandardButtons(QMessageBox.Ok)
-			msg.setDefaultButton(QMessageBox.Ok)
-			msg.exec_()
-
+	def on_no_clicked(self):
+		"""Handle No/Cancel button click."""
+		if self.download_started and not self.download_completed:
+			# Ask for confirmation if download is in progress
+			reply = QMessageBox.question(
+				self, 
+				'Cancel Download',
+				'Are you sure you want to cancel the download?',
+				QMessageBox.Yes | QMessageBox.No,
+				QMessageBox.No
+			)
+			
+			if reply == QMessageBox.Yes:
+				self.update_declined.emit()
+				self.reject()
 		else:
-			# For non-macOS platforms, just try to open the file
-			if sys.platform == "win32":
-				os.startfile(self.file_path)
-			else:
-				subprocess.Popen(['xdg-open', self.file_path])
+			# Normal decline
+			self.update_declined.emit()
+			self.reject()
 
-		# Close the dialog
-		self.accept()
+	def update_download_progress(self, progress):
+		"""Update the download progress bar."""
+		self.progress_bar.setValue(progress)
+		self.status_label.setText(f"Downloading... {progress}%")
+
+	def download_complete(self, file_path):
+		"""Handle download completion."""
+		self.download_completed = True
+		self.file_path = file_path
+		
+		# Update progress to 100% if not already
+		self.progress_bar.setValue(100)
+		self.status_label.setText("Download complete! Verifying...")
+
+	def verification_started(self):
+		"""Handle verification start."""
+		self.status_label.setText("Verifying download integrity...")
+
+	def verification_success(self, file_path, actual_checksum, expected_checksum):
+		"""Handle successful verification."""
+		# Update UI for installation mode
+		self.yes_button.setEnabled(True)
+		self.yes_button.setText("Install")
+		self.yes_button.setStyleSheet("""
+			QPushButton {
+				background-color: #2196F3;
+				color: white;
+				border: none;
+				border-radius: 5px;
+				font-weight: bold;
+			}
+			QPushButton:hover {
+				background-color: #1976D2;
+			}
+			QPushButton:pressed {
+				background-color: #1565C0;
+			}
+		""")
+		
+		self.no_button.setText("Close")
+		self.progress_bar.setVisible(False)
+		self.status_label.setText("✓ Verification successful")
+		self.status_label.setStyleSheet("font-size: 12px; color: #4CAF50; font-weight: bold;")
+		
+		# Update message with platform-specific installation instructions
+		install_msg = ("Download Complete!\n\n"
+					  "The update has been downloaded and verified.\n\n" +
+					  self.platform_manager.update_manager.get_installation_instructions())
+		self.message_label.setText(install_msg)
+
+	def verification_failed(self, error_msg):
+		"""Handle verification failure."""
+		self.download_failed = True
+		
+		# Update UI for failure
+		self.yes_button.setEnabled(True)
+		self.yes_button.setText("Retry")
+		self.no_button.setText("Close")
+		
+		self.progress_bar.setVisible(False)
+		self.status_label.setText("✗ Verification failed")
+		self.status_label.setStyleSheet("font-size: 12px; color: #F44336; font-weight: bold;")
+		
+		# Update message
+		self.message_label.setText(
+			f"Download verification failed!\n\n"
+			f"Error: {error_msg}\n\n"
+			"The downloaded file may be corrupted or tampered with.\n"
+			"Please try downloading again."
+		)
+
+	def install_update(self):
+		"""Open the downloaded update file."""
+		if self.file_path and os.path.exists(self.file_path):
+			# Open the update file using platform manager
+			if self.platform_manager.update_manager.open_update_file(self.file_path):
+				# Show a reminder to quit the app (for all platforms)
+				msg = QMessageBox(self)
+				msg.setWindowTitle("Quit Application")
+				msg.setText("Please quit this application to complete the installation.")
+				msg.setInformativeText("Follow the installer instructions to complete the update.")
+				msg.setStandardButtons(QMessageBox.Ok)
+				msg.setDefaultButton(QMessageBox.Ok)
+				msg.exec_()
+			else:
+				# Failed to open the update file
+				msg = QMessageBox(self)
+				msg.setWindowTitle("Error")
+				msg.setText("Failed to open the update file.")
+				msg.setInformativeText(f"Please manually open: {self.file_path}")
+				msg.setIcon(QMessageBox.Warning)
+				msg.exec_()
+
+			# Close the dialog
+			self.accept()

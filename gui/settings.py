@@ -1,5 +1,4 @@
 import os
-import platform
 from typing import Dict, Any, List, Tuple
 
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QSettings
@@ -12,6 +11,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
 from core.detector import FaceDetector
 from core.webcam import WebcamManager
 from utils.config import ConfigManager
+from utils.platform import get_platform_manager
 
 
 class ColorButton(QPushButton):
@@ -101,6 +101,7 @@ class SettingsPanel(QWidget):
         """
         super().__init__(parent)
         self.config_manager = config_manager
+        self.platform_manager = get_platform_manager()
         self.available_models = FaceDetector.get_available_models()
         self.available_cameras = WebcamManager.get_device_list()
 
@@ -799,36 +800,46 @@ class SettingsPanel(QWidget):
 
     def _on_app_browse_clicked(self):
         """Handle app browse button click."""
-        if platform.system() == 'Darwin':
-            # First, try to browse to the Applications directory
-            # Use getOpenFileName to get better .app visibility with native dialog
-            filename, _ = QFileDialog.getOpenFileName(
+        # Get platform-specific file filter
+        file_filter = self.platform_manager.app_launcher.get_app_selection_filter()
+        
+        # Get default applications directory based on platform
+        default_dir = "/Applications" if os.path.exists("/Applications") else os.path.expanduser("~")
+        
+        # Use platform-appropriate dialog
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Application",
+            default_dir,
+            file_filter + ";;All Files (*)"
+        )
+
+        # If nothing was selected, try directory selection as fallback
+        if not filename:
+            filename = QFileDialog.getExistingDirectory(
                 self,
-                "Select Application (.app)",
-                "/Applications",
-                "Applications (*.app);;All Files (*)"
+                "Select Application Directory",
+                default_dir
             )
 
-            # If nothing was selected, try a different approach
-            if not filename:
-                # Allow browsing to any location
-                filename = QFileDialog.getExistingDirectory(
-                    self,
-                    "Select Application Directory",
-                    "/Applications"
-                )
-
-            # Validate and set the path
-            if filename:
-                # If it's an app bundle or executable, use it directly
-                if filename.endswith('.app') or os.access(filename, os.X_OK):
-                    self.app_path_edit.setText(filename)
-                else:
-                    # Check if the selected path contains an executable
-                    if os.path.isdir(filename) and any(f.endswith('.app') for f in os.listdir(filename)):
-                        # If directory contains .app files, show a selection dialog
+        # Validate and set the path
+        if filename:
+            # Validate using platform manager
+            if self.platform_manager.app_launcher.validate_app_path(filename):
+                self.app_path_edit.setText(filename)
+            else:
+                # Check if the selected path contains an executable
+                if os.path.isdir(filename):
+                    # Look for valid app files in the directory
+                    app_files = []
+                    for f in os.listdir(filename):
+                        full_path = os.path.join(filename, f)
+                        if self.platform_manager.app_launcher.validate_app_path(full_path):
+                            app_files.append(f)
+                    
+                    if app_files:
+                        # If directory contains app files, show a selection dialog
                         from PyQt5.QtWidgets import QInputDialog
-                        app_files = [f for f in os.listdir(filename) if f.endswith('.app')]
                         app_name, ok = QInputDialog.getItem(
                             self,
                             "Select Application",
@@ -849,17 +860,6 @@ class SettingsPanel(QWidget):
                         )
                         if response == QMessageBox.Yes:
                             self.app_path_edit.setText(filename)
-        else:
-            # Other platforms: Use standard dialog
-            filename, _ = QFileDialog.getOpenFileName(
-                self,
-                "Select Application",
-                "",
-                "Executables (*.exe);;All Files (*)"
-            )
-
-            if filename:
-                self.app_path_edit.setText(filename)
     
     def _on_apply_clicked(self):
         """Handle apply button click."""
