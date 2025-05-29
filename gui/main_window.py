@@ -18,6 +18,7 @@ from gui.settings import SettingsPanel
 from gui.webcam_view import WebcamView
 from gui.update_view import UpdateView
 from utils.config import ConfigManager
+from utils.platform import get_platform_manager
 
 
 class MainWindow(QMainWindow):
@@ -29,6 +30,9 @@ class MainWindow(QMainWindow):
     def __init__(self):
         """Initialize the main window."""
         super().__init__()
+        
+        # Get platform manager (singleton)
+        self.platform_manager = get_platform_manager()
         
         # Configuration
         self.config_manager = ConfigManager()
@@ -486,11 +490,12 @@ class MainWindow(QMainWindow):
         Args:
             always_on_top: Whether the window should stay on top
         """
-        flags = self.windowFlags()
-        if always_on_top:
-            self.setWindowFlags(flags | Qt.WindowStaysOnTopHint)
-        else:
-            self.setWindowFlags(flags & ~Qt.WindowStaysOnTopHint)
+        # Use platform manager to set window flags
+        self.platform_manager.window_manager.set_window_flags(
+            self, 
+            always_on_top=always_on_top, 
+            frameless=False
+        )
         self.show()
     
     
@@ -836,7 +841,7 @@ class MainWindow(QMainWindow):
         current_version = self.config_manager.get("app_version", "1.0.0")
 
         # Create the update view with version information
-        self.update_view = UpdateView(current_version, new_version, self)
+        self.update_view = UpdateView(self.update_manager, self, version_info=new_version)
 
         # Connect to update signals
         self.update_view.update_accepted.connect(self._handle_update_accepted)
