@@ -1,0 +1,172 @@
+from PyQt5.QtCore import Qt, pyqtSignal, QSettings
+from PyQt5.QtGui import QKeySequence
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QDialogButtonBox, QShortcut
+
+from gui.settings import SettingsPanel
+from utils.config import ConfigManager
+
+
+class PreferencesWindow(QDialog):
+	"""
+	Preferences window for the EyesOff application.
+	Provides a separate window for application settings following macOS conventions.
+	"""
+
+	# Signal emitted when preferences are changed
+	preferences_changed = pyqtSignal(dict)
+
+	def __init__(self, config_manager: ConfigManager, parent=None):
+		"""
+		Initialize the preferences window.
+
+		Args:
+			config_manager: Configuration manager instance
+			parent: Parent widget
+		"""
+		super().__init__(parent)
+		self.config_manager = config_manager
+
+		# Set window properties
+		self.setWindowTitle("Preferences")
+		self.setWindowModality(Qt.ApplicationModal)
+		self.setMinimumSize(600, 400)
+
+		# Initialize UI
+		self._init_ui()
+
+		# Set up keyboard shortcut for closing (Cmd+W on Mac)
+		close_shortcut = QShortcut(QKeySequence("Ctrl+W"), self)
+		close_shortcut.activated.connect(self.close)
+
+		# Load window geometry if saved
+		self._restore_geometry()
+
+	def _init_ui(self):
+		"""Initialize the UI components."""
+		# Main layout
+		main_layout = QVBoxLayout()
+		main_layout.setContentsMargins(0, 0, 0, 0)
+
+		# Create settings panel
+		self.settings_panel = SettingsPanel(self.config_manager)
+
+		# Remove the bottom buttons from settings panel since we'll use dialog buttons
+		if hasattr(self.settings_panel, 'reset_button'):
+			self.settings_panel.reset_button.setVisible(False)
+		if hasattr(self.settings_panel, 'apply_button'):
+			self.settings_panel.apply_button.setVisible(True)
+
+		# Connect settings changed signal
+		self.settings_panel.settings_changed.connect(self._on_settings_changed)
+
+		# Add settings panel to layout
+		main_layout.addWidget(self.settings_panel)
+
+		# Create dialog button box
+		self.button_box = QDialogButtonBox(
+			QDialogButtonBox.Ok | QDialogButtonBox.Cancel | QDialogButtonBox.Apply
+		)
+
+		# Customize button text for macOS style
+		self.button_box.button(QDialogButtonBox.Ok).setText("OK")
+		self.button_box.button(QDialogButtonBox.Cancel).setText("Cancel")
+		self.button_box.button(QDialogButtonBox.Apply).setText("Apply")
+
+		# Connect button signals
+		self.button_box.accepted.connect(self._on_ok_clicked)
+		self.button_box.rejected.connect(self._on_cancel_clicked)
+		self.button_box.button(QDialogButtonBox.Apply).clicked.connect(self._on_apply_clicked)
+
+		# Initially disable Apply button
+		self.button_box.button(QDialogButtonBox.Apply).setEnabled(True)
+
+		# Add button box to layout
+		main_layout.addWidget(self.button_box)
+
+		self.setLayout(main_layout)
+
+		# Store original settings for cancel functionality
+		self.original_settings = self.config_manager.get_all().copy()
+
+	def _on_settings_changed(self, settings):
+		"""
+		Handle settings changes from the settings panel.
+
+		Args:
+			settings: Changed settings dictionary
+		"""
+		# Enable Apply button when settings change
+		self.button_box.button(QDialogButtonBox.Apply).setEnabled(True)
+
+	def _on_ok_clicked(self):
+		"""Handle OK button click."""
+		# Apply settings and close
+		self._apply_settings()
+		self._save_geometry()
+		self.accept()
+
+	def _on_cancel_clicked(self):
+		"""Handle Cancel button click."""
+		# Restore original settings
+		self.config_manager.update(self.original_settings)
+		self.config_manager.save_config()
+
+		# Emit signal to update the main application
+		self.preferences_changed.emit(self.original_settings)
+
+		self._save_geometry()
+		self.reject()
+
+	def _on_apply_clicked(self):
+		"""Handle Apply button click."""
+		self._apply_settings()
+
+		# Update original settings to current state
+		self.original_settings = self.config_manager.get_all().copy()
+
+		# Disable Apply button after applying
+		self.button_box.button(QDialogButtonBox.Apply).setEnabled(False)
+
+	def _apply_settings(self):
+		"""Apply the current settings."""
+		# Trigger the settings panel's apply method
+		if hasattr(self.settings_panel, '_on_apply_clicked'):
+			self.settings_panel._on_apply_clicked()
+
+		# The settings panel will emit settings_changed signal,
+		# which we forward to the main window
+		current_settings = self.config_manager.get_all()
+		self.preferences_changed.emit(current_settings)
+
+	def _save_geometry(self):
+		"""Save window geometry to settings."""
+		settings = QSettings("EyesOffApp", "EyesOff")
+		settings.setValue("preferences_geometry", self.saveGeometry())
+
+	def _restore_geometry(self):
+		"""Restore window geometry from settings."""
+		settings = QSettings("EyesOffApp", "EyesOff")
+		geometry = settings.value("preferences_geometry")
+		if geometry:
+			self.restoreGeometry(geometry)
+		else:
+			# Center on parent if no saved geometry
+			if self.parent():
+				parent_rect = self.parent().geometry()
+				x = parent_rect.x() + (parent_rect.width() - self.width()) // 2
+				y = parent_rect.y() + (parent_rect.height() - self.height()) // 2
+				self.move(x, y)
+
+	def showEvent(self, event):
+		"""Handle show event."""
+		super().showEvent(event)
+
+		# Reset original settings when showing
+		self.original_settings = self.config_manager.get_all().copy()
+
+		# Reload settings in the panel
+		if hasattr(self.settings_panel, '_load_settings'):
+			self.settings_panel._load_settings()
+
+		# Disable Apply button initially
+		self.button_box.button(QDialogButtonBox.Apply).setEnabled(False)
