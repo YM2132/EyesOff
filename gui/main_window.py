@@ -4,7 +4,7 @@ import time
 from typing import Dict, Any, Optional
 
 from PyQt5.QtCore import Qt, QTimer, QSettings, pyqtSlot
-from PyQt5.QtGui import QIcon, QCloseEvent
+from PyQt5.QtGui import QIcon, QCloseEvent, QKeySequence
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 							 QSplitter, QAction, QMenu, QStatusBar, QMessageBox,
 							 QSystemTrayIcon, QStyle, QApplication)
@@ -14,7 +14,7 @@ from core.manager import DetectionManagerThread
 from core.webcam import WebcamManager
 from core.update_checker import UpdateManager
 from gui.alert import AlertDialog
-from gui.settings import SettingsPanel
+from gui.preferences_window import PreferencesWindow
 from gui.webcam_view import WebcamView
 from gui.update_view import UpdateView
 from utils.config import ConfigManager
@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
         
         # UI components
         self.webcam_view = None
-        self.settings_panel = None
+        self.preferences_window = None
         self.alert_dialog = None
         self.tray_icon = None
         
@@ -81,23 +81,14 @@ class MainWindow(QMainWindow):
         # Create central widget
         central_widget = QWidget()
         main_layout = QHBoxLayout()
-        
-        # Create splitter for resizable panels - splitter is the panels
-        # for settings and the webcam view
-        # splitter = QSplitter(Qt.Horizontal)
+        main_layout.setContentsMargins(0, 0, 0, 0)
         
         # Create webcam view
         self.webcam_view = WebcamView()
         self.webcam_view.monitoring_toggled.connect(self._on_monitoring_toggled)
-        
-        # Create settings panel
-        self.settings_panel = SettingsPanel(self.config_manager)
-        self.settings_panel.settings_changed.connect(self._apply_settings)
-        # self.settings_panel.test_alert_requested.connect(self._show_test_alert)
 
         # Add widgets to horizontal layout
-        main_layout.addWidget(self.webcam_view, 7)  # 70% width
-        main_layout.addWidget(self.settings_panel, 3)  # 30% width
+        main_layout.addWidget(self.webcam_view)
         
         # Set layout to central widget
         central_widget.setLayout(main_layout)
@@ -116,9 +107,6 @@ class MainWindow(QMainWindow):
         
         # Set window position
         self._center_window()
-
-        # Create update view
-        # self.update_view = UpdateView()
     
     def _create_menus(self):
         """Create application menus."""
@@ -134,28 +122,23 @@ class MainWindow(QMainWindow):
         self.stop_action.triggered.connect(self._stop_monitoring)
         self.stop_action.setEnabled(False)
         file_menu.addAction(self.stop_action)
+
+        if sys.platform != "darwin":
+            file_menu.addSeparator()
+            # Exit action
+            exit_action = QAction("Exit", self)
+            exit_action.triggered.connect(self.close)
+            file_menu.addAction(exit_action)
         
-        file_menu.addSeparator()
-        
-        # Exit action
-        exit_action = QAction("Exit", self)
-        exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
-        
-        # Settings menu
-        settings_menu = self.menuBar().addMenu("&Settings")
-        
-        # Test alert action
-        # test_alert_action = QAction("Test Alert", self)
-        # test_alert_action.triggered.connect(self._show_test_alert)
-        # settings_menu.addAction(test_alert_action)
-        
-        settings_menu.addSeparator()
-        
-        # Reset settings action
-        reset_settings_action = QAction("Reset to Defaults", self)
-        reset_settings_action.triggered.connect(self._reset_settings)
-        settings_menu.addAction(reset_settings_action)
+        # Edit menu for macOS convention
+        edit_menu = self.menuBar().addMenu("&Edit")
+
+        # Settings... action
+        settings_action = QAction("Settings...", self)
+        settings_action.setEnabled(QKeySequence.Preferences)
+        settings_action.triggered.connect(self._show_settings)
+
+        edit_menu.addAction(settings_action)
         
         # Help menu
         help_menu = self.menuBar().addMenu("&Help")
@@ -171,7 +154,7 @@ class MainWindow(QMainWindow):
         self.tray_icon = QSystemTrayIcon(self)
         
         # Use a standard icon
-        self.tray_icon.setIcon(self.style().standardIcon(QStyle.SP_ComputerIcon))
+        self.tray_icon.setIcon(QIcon('gui/resources/icons/eyesoff_refined_logo.png'))
         
         # Create tray menu
         tray_menu = QMenu()
@@ -180,6 +163,12 @@ class MainWindow(QMainWindow):
         show_action = QAction("Show", self)
         show_action.triggered.connect(self.show)
         tray_menu.addAction(show_action)
+
+        tray_menu.addSeparator()
+
+        settings_action = QAction("Settings...", self)
+        settings_action.triggered.connect(self._show_settings)
+        tray_menu.addAction(settings_action)
         
         tray_menu.addSeparator()
         
@@ -215,6 +204,16 @@ class MainWindow(QMainWindow):
             int((screen_geometry.width() - window_geometry.width()) / 2),
             int((screen_geometry.height() - window_geometry.height()) / 2)
         )
+
+    def _show_settings(self):
+        if self.preferences_window is None:
+            self.preferences_window = PreferencesWindow(self.config_manager, self)
+            self.preferences_window.preferences_changed.connect(self._apply_settings)
+
+        self.preferences_window.show()
+        self.preferences_window.raise_()
+        self.preferences_window.activateWindow()
+
     
     def _init_components(self):
         """Initialize the core components."""
