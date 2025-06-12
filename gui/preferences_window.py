@@ -1,6 +1,6 @@
 from PyQt5.QtCore import Qt, pyqtSignal, QSettings
 from PyQt5.QtGui import QKeySequence
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QDialogButtonBox, QShortcut
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QDialogButtonBox, QShortcut, QHBoxLayout, QPushButton
 
 from gui.settings import SettingsPanel
 from utils.config import ConfigManager
@@ -27,7 +27,7 @@ class PreferencesWindow(QDialog):
 		self.config_manager = config_manager
 
 		# Set window properties
-		self.setWindowTitle("Preferences")
+		self.setWindowTitle("Settings")  # TODO - NAME the file settings_window
 		self.setWindowModality(Qt.ApplicationModal)
 		self.setMinimumSize(600, 400)
 
@@ -45,16 +45,20 @@ class PreferencesWindow(QDialog):
 		"""Initialize the UI components."""
 		# Main layout
 		main_layout = QVBoxLayout()
-		main_layout.setContentsMargins(0, 0, 0, 0)
+		main_layout.setContentsMargins(10, 10, 10, 10)
 
 		# Create settings panel
 		self.settings_panel = SettingsPanel(self.config_manager)
 
 		# Remove the bottom buttons from settings panel since we'll use dialog buttons
 		if hasattr(self.settings_panel, 'reset_button'):
-			self.settings_panel.reset_button.setVisible(False)
-		if hasattr(self.settings_panel, 'apply_button'):
-			self.settings_panel.apply_button.setVisible(True)
+			self.settings_panel.button_widget.setVisible(False)
+		else:
+			# Fallback: hide individual buttons if button_widget doesn't exist
+			if hasattr(self.settings_panel, 'reset_button'):
+				self.settings_panel.reset_button.setVisible(False)
+			if hasattr(self.settings_panel, 'apply_button'):
+				self.settings_panel.apply_button.setVisible(False)
 
 		# Connect settings changed signal
 		self.settings_panel.settings_changed.connect(self._on_settings_changed)
@@ -63,30 +67,64 @@ class PreferencesWindow(QDialog):
 		main_layout.addWidget(self.settings_panel)
 
 		# Create dialog button box
-		self.button_box = QDialogButtonBox(
-			QDialogButtonBox.Ok | QDialogButtonBox.Cancel | QDialogButtonBox.Apply
-		)
+		#self.button_box = QDialogButtonBox(
+		#	QDialogButtonBox.Ok | QDialogButtonBox.Cancel | QDialogButtonBox.Apply
+		#)
+
+		button_layout = QHBoxLayout()
+		button_layout.setContentsMargins(10, 10, 10, 10)
 
 		# Customize button text for macOS style
-		self.button_box.button(QDialogButtonBox.Ok).setText("OK")
-		self.button_box.button(QDialogButtonBox.Cancel).setText("Cancel")
-		self.button_box.button(QDialogButtonBox.Apply).setText("Apply")
+		#self.button_box.button(QDialogButtonBox.Ok).setText("OK")
+		#self.button_box.button(QDialogButtonBox.Cancel).setText("Cancel")
+		#self.button_box.button(QDialogButtonBox.Apply).setText("Apply")
+
+		self.reset_button = QPushButton("Reset to Defaults", self)
+		button_layout.addWidget(self.reset_button)
+
+		button_layout.addStretch()
+
+		self.cancel_button = QPushButton("Cancel")
+		self.apply_button = QPushButton("Apply")
+		self.ok_button = QPushButton("OK")
+
+		self.apply_button.setEnabled(False)
+		self.ok_button.setDefault(True)
+
+		button_layout.addWidget(self.cancel_button)
+		button_layout.addSpacing(6)
+		button_layout.addWidget(self.apply_button)
+		button_layout.addSpacing(6)
+		button_layout.addWidget(self.ok_button)
 
 		# Connect button signals
-		self.button_box.accepted.connect(self._on_ok_clicked)
-		self.button_box.rejected.connect(self._on_cancel_clicked)
-		self.button_box.button(QDialogButtonBox.Apply).clicked.connect(self._on_apply_clicked)
+		self.reset_button.clicked.connect(self._on_reset_button_clicked)
+		self.cancel_button.clicked.connect(self._on_cancel_clicked)
+		self.apply_button.clicked.connect(self._on_apply_clicked)
+		self.ok_button.clicked.connect(self._on_ok_clicked)
 
-		# Initially disable Apply button
-		self.button_box.button(QDialogButtonBox.Apply).setEnabled(True)
-
-		# Add button box to layout
-		main_layout.addWidget(self.button_box)
+		main_layout.addLayout(button_layout)
 
 		self.setLayout(main_layout)
 
 		# Store original settings for cancel functionality
 		self.original_settings = self.config_manager.get_all().copy()
+
+	def _on_reset_button_clicked(self):
+		self.config_manager.reset_to_defaults()
+
+		# Reload settings in the panel
+		if hasattr(self.settings_panel, '_load_settings'):
+			self.settings_panel._load_settings()
+
+		# Update original settings to the new defaults
+		self.original_settings = self.config_manager.get_all().copy()
+
+		# Emit signal to update the main application
+		self.preferences_changed.emit(self.original_settings)
+
+		# Enable Apply button since we made changes
+		self.apply_button.setEnabled(True)
 
 	def _on_settings_changed(self, settings):
 		"""
@@ -96,7 +134,7 @@ class PreferencesWindow(QDialog):
 			settings: Changed settings dictionary
 		"""
 		# Enable Apply button when settings change
-		self.button_box.button(QDialogButtonBox.Apply).setEnabled(True)
+		self.apply_button.setEnabled(True)
 
 	def _on_ok_clicked(self):
 		"""Handle OK button click."""
@@ -125,7 +163,7 @@ class PreferencesWindow(QDialog):
 		self.original_settings = self.config_manager.get_all().copy()
 
 		# Disable Apply button after applying
-		self.button_box.button(QDialogButtonBox.Apply).setEnabled(False)
+		self.apply_button.setEnabled(False)
 
 	def _apply_settings(self):
 		"""Apply the current settings."""
@@ -169,4 +207,4 @@ class PreferencesWindow(QDialog):
 			self.settings_panel._load_settings()
 
 		# Disable Apply button initially
-		self.button_box.button(QDialogButtonBox.Apply).setEnabled(False)
+		self.apply_button.setEnabled(False)

@@ -87,10 +87,7 @@ class SettingsPanel(QWidget):
     
     # Signal emitted when settings are changed
     settings_changed = pyqtSignal(dict)
-    
-    # Signal emitted when the "Test Alert" button is clicked
-    test_alert_requested = pyqtSignal()
-    
+
     def __init__(self, config_manager: ConfigManager, parent=None):
         """
         Initialize the settings panel.
@@ -135,26 +132,75 @@ class SettingsPanel(QWidget):
         
         # Add control buttons at the bottom
         button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(0, 5, 0, 0)
         
         self.reset_button = QPushButton("Reset to Defaults")
         self.reset_button.clicked.connect(self._on_reset_clicked)
-        
-        #self.test_alert_button = QPushButton("Test Alert")
-        #self.test_alert_button.clicked.connect(self._on_test_alert_clicked)
         
         self.apply_button = QPushButton("Apply")
         self.apply_button.clicked.connect(self._on_apply_clicked)
         
         button_layout.addWidget(self.reset_button)
         button_layout.addStretch(1)
-        #button_layout.addWidget(self.test_alert_button)
         button_layout.addWidget(self.apply_button)
+
+        # Create a widget to hold the button layout (makes it easier to hide)
+        self.button_widget = QWidget()
+        self.button_widget.setLayout(button_layout)
         
         # Add components to main layout
         main_layout.addWidget(self.tabs)
-        main_layout.addLayout(button_layout)
+        main_layout.addWidget(self.button_widget)
         
         self.setLayout(main_layout)
+
+        self._auto_connect_signals()
+
+    def _auto_connect_signals(self):
+        """Automatically connect change signals from all input widgets."""
+        # Map widget types to their change signals
+        signal_map = {
+            QComboBox: 'currentTextChanged',
+            QSpinBox: 'valueChanged',
+            QDoubleSpinBox: 'valueChanged',
+            QCheckBox: 'toggled',
+            QRadioButton: 'toggled',
+            QLineEdit: 'textChanged',
+            QSlider: 'valueChanged',
+            ColorButton: 'color_changed'  # Your custom widget
+        }
+
+        # Find all widgets and connect their signals
+        for widget in self.findChildren(QWidget):
+            widget_type = type(widget)
+
+            # Check if this widget type has a known change signal
+            for widget_class, signal_name in signal_map.items():
+                if isinstance(widget, widget_class):
+                    # Skip buttons that aren't radio buttons
+                    if isinstance(widget, QPushButton) and not isinstance(widget, QRadioButton):
+                        continue
+
+                    # Connect the signal
+                    signal = getattr(widget, signal_name, None)
+                    if signal:
+                        signal.connect(self._on_any_setting_changed)
+                    break
+
+    def _on_any_setting_changed(self):
+        """Emit settings_changed signal when any setting is modified."""
+        # Only emit if we're not currently loading settings
+        if hasattr(self, '_loading_settings') and self._loading_settings:
+            return
+
+        # Enable apply button
+        if hasattr(self, 'apply_button'):
+            self.apply_button.setEnabled(True)
+
+        # Emit a simple signal without the full settings dict
+        # The receiver can call get_current_settings() if needed
+        self.settings_changed.emit({})
+
     
     def _create_detection_tab(self) -> QWidget:
         """
@@ -172,7 +218,6 @@ class SettingsPanel(QWidget):
         
         # Model type combo box
         self.model_type_combo = QComboBox()
-        # self.model_type_combo.addItems(["yunet", "gaze"])  # Removed moondream as it's not fully developed yet
         self.model_type_combo.addItems(list(self.MODEL_TYPE_MAPPING.keys()))
         self.model_type_combo.currentTextChanged.connect(self._on_model_type_changed)
         self.model_type_combo.setToolTip('"Face" detects only when faces enter the frame | "Gaze" detects when people are looking at your screen')
@@ -180,8 +225,6 @@ class SettingsPanel(QWidget):
         
         # Model selection combo box
         self.model_path_combo = QComboBox()
-        # Will be populated in _on_model_type_changed
-        #model_layout.addRow("Model:", self.model_path_combo)
 
         # Face confidence threshold
         self.face_confidence_spin = QDoubleSpinBox()
@@ -232,26 +275,9 @@ class SettingsPanel(QWidget):
         
         threshold_group.setLayout(threshold_layout)
         
-        # Visualization group - Define but i will remove the box for now. I do not need settings for privacy mode
-        #visual_group = QGroupBox("Visualization")
-        #visual_layout = QFormLayout()
-        
-        # Show detection visualization - Defined but doenst do anything
-        # self.show_detection_check = QCheckBox()
-        # self.show_detection_check.setToolTip("Show detection boundaries and information")
-        # visual_layout.addRow("Show Detection Visualization:", self.show_detection_check)
-        
-        # Privacy mode
-        # self.privacy_mode_check = QCheckBox()
-        # self.privacy_mode_check.setToolTip("Blur or pixelate faces in the display")
-        # visual_layout.addRow("Privacy Mode:", self.privacy_mode_check)
-        
-        # visual_group.setLayout(visual_layout)
-        
         # Add all groups to tab layout
         layout.addWidget(model_group)
         layout.addWidget(threshold_group)
-        # layout.addWidget(visual_group)
         layout.addStretch(1)
         
         tab.setLayout(layout)
@@ -592,105 +618,112 @@ class SettingsPanel(QWidget):
 
     def _load_settings(self):
         """Load settings from configuration manager into UI components."""
-        # Detection tab
-        detector_type = self.config_manager.get("detector_type", "yunet")
-        friendly_name = self.REVERSE_MODEL_TYPE_MAPPING.get(detector_type, "Face")
+        # Set flag to prevent emitting signals while loading
+        self._loading_settings = True
 
-        self.model_type_combo.setCurrentText(friendly_name)
-
-        # Explicitly enable/disable gaze threshold control based on detector type
-        self.gaze_confidence_spin.setEnabled(detector_type == "gaze")
-
-        self._on_model_type_changed(friendly_name)  # Populate model path combo
-
-        model_path = self.config_manager.get("model_path", "")
-        index = self.model_path_combo.findText(model_path)
-        if index >= 0:
-            self.model_path_combo.setCurrentIndex(index)
-
-        # self.confidence_spin.setValue(self.config_manager.get("confidence_threshold", 0.5))
-        self.face_confidence_spin.setValue(self.config_manager.get("confidence_threshold", 0.75))
-        self.face_threshold_spin.setValue(self.config_manager.get("face_threshold", 1))
-        self.debounce_spin.setValue(self.config_manager.get("debounce_time", 1.0))
-        self.detection_delay_spin.setValue(self.config_manager.get("detection_delay", 0.2))
-        # Load gaze threshold
-        self.gaze_confidence_spin.setValue(self.config_manager.get("gaze_threshold", 0.6))
-        # self.show_detection_check.setChecked(self.config_manager.get("show_detection_visualization", True))
-        # self.privacy_mode_check.setChecked(self.config_manager.get("privacy_mode", False))
-
-        # Alert tab
-        # Set the appropriate radio button based on alert_on setting
-        alert_on = self.config_manager.get("alert_on", False)
-        if alert_on:
-            self.screen_alert_radio.setChecked(True)
-        else:
-            self.notification_radio.setChecked(True)
-
-        # Show/hide configurations based on alert type
-        self.screen_alert_config.setVisible(alert_on)
-        self.app_launch_group.setVisible(not alert_on)  # Only show for push notifications
-
-        # Change from slider to spinner for opacity
-        opacity_percentage = int(self.config_manager.get("alert_opacity", 0.8) * 100)
-        self.alert_opacity_spin.setValue(opacity_percentage)
-
-        self.alert_text_edit.setText(self.config_manager.get("alert_text", "EYES OFF!!!"))
-        self.alert_color_button.set_color(self.config_manager.get("alert_color", (0, 0, 255)))
-        self.alert_opacity_spin.setValue(int(self.config_manager.get("alert_opacity", 0.8) * 100))
-
-        alert_size = self.config_manager.get("alert_size", (600, 300))
-        self.alert_width_spin.setValue(alert_size[0])
-        self.alert_height_spin.setValue(alert_size[1])
-
-        self.animations_check.setChecked(self.config_manager.get("enable_animations", True))
-        self.fullscreen_check.setChecked(self.config_manager.get("fullscreen_mode", False))
-
-        auto_dismiss = self.config_manager.get("auto_dismiss", False)
-        self.auto_dismiss_check.setChecked(auto_dismiss)
-
-        alert_sound_enabled = self.config_manager.get("alert_sound_enabled", False)
-        self.alert_sound_check.setChecked(alert_sound_enabled)
-        self.alert_sound_edit.setEnabled(alert_sound_enabled)
-        self.sound_browse_button.setEnabled(alert_sound_enabled)
-        self.alert_sound_edit.setText(self.config_manager.get("alert_sound_file", ""))
-
-        # App launch settings
-        self.launch_app_check.setChecked(self.config_manager.get("launch_app_enabled", False))
-        self.app_path_edit.setText(self.config_manager.get("launch_app_path", ""))
-        self.app_path_edit.setEnabled(self.launch_app_check.isChecked())
-        self.app_browse_button.setEnabled(self.launch_app_check.isChecked())
-
-        # Camera tab
-        camera_id = self.config_manager.get("camera_id", 0)
         try:
-            self.camera_combo.setCurrentIndex(camera_id)
-        except:
-            self.camera_combo.setCurrentIndex(0)
+            # Detection tab
+            detector_type = self.config_manager.get("detector_type", "yunet")
+            friendly_name = self.REVERSE_MODEL_TYPE_MAPPING.get(detector_type, "Face")
 
-        frame_width = self.config_manager.get("frame_width", 640)
-        frame_height = self.config_manager.get("frame_height", 480)
+            self.model_type_combo.setCurrentText(friendly_name)
 
-        # Set resolution combo
-        if frame_width == 640 and frame_height == 480:
-            self.resolution_combo.setCurrentText("640x480 (VGA)")
-        elif frame_width == 1280 and frame_height == 720:
-            self.resolution_combo.setCurrentText("1280x720 (HD)")
-        elif frame_width == 1920 and frame_height == 1080:
-            self.resolution_combo.setCurrentText("1920x1080 (Full HD)")
-        else:
-            self.resolution_combo.setCurrentText("Custom")
-            self.width_spin.setEnabled(True)
-            self.height_spin.setEnabled(True)
-            self.width_spin.setValue(frame_width)
-            self.height_spin.setValue(frame_height)
+            # Explicitly enable/disable gaze threshold control based on detector type
+            self.gaze_confidence_spin.setEnabled(detector_type == "gaze")
 
-        # App tab
-        self.start_boot_check.setChecked(self.config_manager.get("start_on_boot", False))
-        self.start_minimized_check.setChecked(self.config_manager.get("start_minimized", False))
-        self.always_top_check.setChecked(self.config_manager.get("always_on_top", False))
-        self.minimize_tray_check.setChecked(self.config_manager.get("minimize_to_tray", True))
-        # Add setting for getting the snapshot path
-        self.path_edit.setText(self.config_manager.get("snapshot_path", ""))
+            self._on_model_type_changed(friendly_name)  # Populate model path combo
+
+            model_path = self.config_manager.get("model_path", "")
+            index = self.model_path_combo.findText(model_path)
+            if index >= 0:
+                self.model_path_combo.setCurrentIndex(index)
+
+            # self.confidence_spin.setValue(self.config_manager.get("confidence_threshold", 0.5))
+            self.face_confidence_spin.setValue(self.config_manager.get("confidence_threshold", 0.75))
+            self.face_threshold_spin.setValue(self.config_manager.get("face_threshold", 1))
+            self.debounce_spin.setValue(self.config_manager.get("debounce_time", 1.0))
+            self.detection_delay_spin.setValue(self.config_manager.get("detection_delay", 0.2))
+            # Load gaze threshold
+            self.gaze_confidence_spin.setValue(self.config_manager.get("gaze_threshold", 0.6))
+            # self.show_detection_check.setChecked(self.config_manager.get("show_detection_visualization", True))
+            # self.privacy_mode_check.setChecked(self.config_manager.get("privacy_mode", False))
+
+            # Alert tab
+            # Set the appropriate radio button based on alert_on setting
+            alert_on = self.config_manager.get("alert_on", False)
+            if alert_on:
+                self.screen_alert_radio.setChecked(True)
+            else:
+                self.notification_radio.setChecked(True)
+
+            # Show/hide configurations based on alert type
+            self.screen_alert_config.setVisible(alert_on)
+            self.app_launch_group.setVisible(not alert_on)  # Only show for push notifications
+
+            # Change from slider to spinner for opacity
+            opacity_percentage = int(self.config_manager.get("alert_opacity", 0.8) * 100)
+            self.alert_opacity_spin.setValue(opacity_percentage)
+
+            self.alert_text_edit.setText(self.config_manager.get("alert_text", "EYES OFF!!!"))
+            self.alert_color_button.set_color(self.config_manager.get("alert_color", (0, 0, 255)))
+            self.alert_opacity_spin.setValue(int(self.config_manager.get("alert_opacity", 0.8) * 100))
+
+            alert_size = self.config_manager.get("alert_size", (600, 300))
+            self.alert_width_spin.setValue(alert_size[0])
+            self.alert_height_spin.setValue(alert_size[1])
+
+            self.animations_check.setChecked(self.config_manager.get("enable_animations", True))
+            self.fullscreen_check.setChecked(self.config_manager.get("fullscreen_mode", False))
+
+            auto_dismiss = self.config_manager.get("auto_dismiss", False)
+            self.auto_dismiss_check.setChecked(auto_dismiss)
+
+            alert_sound_enabled = self.config_manager.get("alert_sound_enabled", False)
+            self.alert_sound_check.setChecked(alert_sound_enabled)
+            self.alert_sound_edit.setEnabled(alert_sound_enabled)
+            self.sound_browse_button.setEnabled(alert_sound_enabled)
+            self.alert_sound_edit.setText(self.config_manager.get("alert_sound_file", ""))
+
+            # App launch settings
+            self.launch_app_check.setChecked(self.config_manager.get("launch_app_enabled", False))
+            self.app_path_edit.setText(self.config_manager.get("launch_app_path", ""))
+            self.app_path_edit.setEnabled(self.launch_app_check.isChecked())
+            self.app_browse_button.setEnabled(self.launch_app_check.isChecked())
+
+            # Camera tab
+            camera_id = self.config_manager.get("camera_id", 0)
+            try:
+                self.camera_combo.setCurrentIndex(camera_id)
+            except:
+                self.camera_combo.setCurrentIndex(0)
+
+            frame_width = self.config_manager.get("frame_width", 640)
+            frame_height = self.config_manager.get("frame_height", 480)
+
+            # Set resolution combo
+            if frame_width == 640 and frame_height == 480:
+                self.resolution_combo.setCurrentText("640x480 (VGA)")
+            elif frame_width == 1280 and frame_height == 720:
+                self.resolution_combo.setCurrentText("1280x720 (HD)")
+            elif frame_width == 1920 and frame_height == 1080:
+                self.resolution_combo.setCurrentText("1920x1080 (Full HD)")
+            else:
+                self.resolution_combo.setCurrentText("Custom")
+                self.width_spin.setEnabled(True)
+                self.height_spin.setEnabled(True)
+                self.width_spin.setValue(frame_width)
+                self.height_spin.setValue(frame_height)
+
+            # App tab
+            self.start_boot_check.setChecked(self.config_manager.get("start_on_boot", False))
+            self.start_minimized_check.setChecked(self.config_manager.get("start_minimized", False))
+            self.always_top_check.setChecked(self.config_manager.get("always_on_top", False))
+            self.minimize_tray_check.setChecked(self.config_manager.get("minimize_to_tray", True))
+            # Add setting for getting the snapshot path
+            self.path_edit.setText(self.config_manager.get("snapshot_path", ""))
+
+        finally:
+            self._loading_settings = False
 
     # TODO - should this function only be called upon apply?
     def _on_model_type_changed(self, user_model_name: str):
@@ -783,6 +816,9 @@ class SettingsPanel(QWidget):
         
         # Emit signal to notify of changes
         self.settings_changed.emit(self.config_manager.get_all())
+
+        # Enable apply button
+        self.apply_button.setEnabled(True)
     
     def _on_test_alert_clicked(self):
         """Handle test alert button click."""
