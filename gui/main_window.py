@@ -133,9 +133,9 @@ class MainWindow(QMainWindow):
         # Edit menu for macOS convention
         edit_menu = self.menuBar().addMenu("&Edit")
 
-        # Settings... action
+        # Settings... action TODO - currently its called Preferences... i want to change it to Settings... but PyQT seems to rename it preferences on its own
         settings_action = QAction("Settings...", self)
-        settings_action.setEnabled(QKeySequence.Preferences)
+        settings_action.setShortcut(QKeySequence.Preferences)
         settings_action.triggered.connect(self._show_settings)
 
         edit_menu.addAction(settings_action)
