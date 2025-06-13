@@ -214,16 +214,25 @@ class SettingsPanel(QWidget):
         self.face_confidence_spin.setDecimals(2)
         self.face_confidence_spin.setValue(0.75)  # Default value
         self.face_confidence_spin.setToolTip("Minimum confidence threshold for face detection")
-        model_layout.addRow("Face Confidence Threshold:", self.face_confidence_spin)
+        # model_layout.addRow("Face Confidence Threshold:", self.face_confidence_spin) TODO - remove and link to alert_sensitivity
 
-        # Gaze confidence threshold
-        self.gaze_confidence_spin = QDoubleSpinBox()
-        self.gaze_confidence_spin.setRange(0.1, 1.0)
-        self.gaze_confidence_spin.setSingleStep(0.05)
-        self.gaze_confidence_spin.setDecimals(2)
-        self.gaze_confidence_spin.setValue(0.6)  # Default value
-        self.gaze_confidence_spin.setToolTip("Threshold to determine if someone is looking at the screen")
-        model_layout.addRow("Gaze Confidence Threshold:", self.gaze_confidence_spin)
+        self.alert_sensitivity_slider = QSlider(Qt.Horizontal)
+        self.alert_sensitivity_slider.setRange(0, 100)
+        self.alert_sensitivity_slider.setSingleStep(1)
+        self.alert_sensitivity_slider.setValue(80)
+
+        labels_layout = QHBoxLayout()
+        labels_layout.addWidget(QLabel("Low"))
+        labels_layout.addStretch()
+        labels_layout.addWidget(QLabel("Medium"))
+        labels_layout.addStretch()
+        labels_layout.addWidget(QLabel("High"))
+
+        container_layout = QVBoxLayout()
+        container_layout.addWidget(self.alert_sensitivity_slider)
+        container_layout.addLayout(labels_layout)
+
+        model_layout.addRow("Alert Sensitivity:", container_layout)
         
         model_group.setLayout(model_layout)
         
@@ -609,9 +618,6 @@ class SettingsPanel(QWidget):
 
             self.model_type_combo.setCurrentText(friendly_name)
 
-            # Explicitly enable/disable gaze threshold control based on detector type
-            self.gaze_confidence_spin.setEnabled(detector_type == "gaze")
-
             self._on_model_type_changed(friendly_name)  # Populate model path combo
 
             model_path = self.config_manager.get("model_path", "")
@@ -620,14 +626,13 @@ class SettingsPanel(QWidget):
                 self.model_path_combo.setCurrentIndex(index)
 
             # self.confidence_spin.setValue(self.config_manager.get("confidence_threshold", 0.5))
-            self.face_confidence_spin.setValue(self.config_manager.get("confidence_threshold", 0.75))
+            self.face_confidence_spin.setValue(self.config_manager.get("confidence_threshold", 0.75)) # TODO - For now this can stay as is, however it should be adapted to be based off of the gaze_threshold and removed from the settings UI
             self.face_threshold_spin.setValue(self.config_manager.get("face_threshold", 1))
             self.debounce_spin.setValue(self.config_manager.get("debounce_time", 1.0))
             self.detection_delay_spin.setValue(self.config_manager.get("detection_delay", 0.2))
             # Load gaze threshold
-            self.gaze_confidence_spin.setValue(self.config_manager.get("gaze_threshold", 0.6))
-            # self.show_detection_check.setChecked(self.config_manager.get("show_detection_visualization", True))
-            # self.privacy_mode_check.setChecked(self.config_manager.get("privacy_mode", False))
+            gaze_threshold = self.config_manager.get("gaze_threshold", 0.6)
+            self.alert_sensitivity_slider.setValue(self._threshold_to_slider(gaze_threshold))
 
             # Alert tab
             # Set the appropriate radio button based on alert_on setting
@@ -856,6 +861,14 @@ class SettingsPanel(QWidget):
                         if response == QMessageBox.Yes:
                             self.app_path_edit.setText(filename)
 
+    def _slider_to_threshold(self, slider_value):
+        """Convert slider value (0-100) to threshold (0.0-1.0)"""
+        return slider_value / 100.0
+
+    def _threshold_to_slider(self, threshold):
+        """Convert threshold (0.0-1.0) to slider value (0-100)"""
+        return int(threshold * 100)
+
     def _get_current_settings(self):
         """Get current settings from UI without saving them."""
         settings = {}
@@ -864,7 +877,7 @@ class SettingsPanel(QWidget):
         settings["detector_type"] = self.MODEL_TYPE_MAPPING.get(self.model_type_combo.currentText(), "yunet")
         settings["model_path"] = self.model_path_combo.currentText()
         settings["confidence_threshold"] = self.face_confidence_spin.value()
-        settings["gaze_threshold"] = self.gaze_confidence_spin.value()
+        settings["gaze_threshold"] = self._slider_to_threshold(self.alert_sensitivity_slider.value())
         settings["face_threshold"] = self.face_threshold_spin.value()
         settings["debounce_time"] = self.debounce_spin.value()
         settings["detection_delay"] = self.detection_delay_spin.value()
@@ -925,12 +938,6 @@ class SettingsPanel(QWidget):
         # Update configuration
         self.config_manager.update(settings)
         self.config_manager.save_config()
-
-        # Handle gaze confidence spin enable/disable
-        if self.MODEL_TYPE_MAPPING.get(self.model_type_combo.currentText()) == 'gaze':
-            self.gaze_confidence_spin.setEnabled(True)
-        else:
-            self.gaze_confidence_spin.setEnabled(False)
 
         return settings
 
