@@ -50,26 +50,11 @@ class PreferencesWindow(QDialog):
 		# Create settings panel
 		self.settings_panel = SettingsPanel(self.config_manager)
 
-		# Remove the bottom buttons from settings panel since we'll use dialog buttons
-		if hasattr(self.settings_panel, 'reset_button'):
-			self.settings_panel.button_widget.setVisible(False)
-		else:
-			# Fallback: hide individual buttons if button_widget doesn't exist
-			if hasattr(self.settings_panel, 'reset_button'):
-				self.settings_panel.reset_button.setVisible(False)
-			if hasattr(self.settings_panel, 'apply_button'):
-				self.settings_panel.apply_button.setVisible(False)
-
 		# Connect settings changed signal
 		self.settings_panel.settings_changed.connect(self._on_settings_changed)
 
 		# Add settings panel to layout
 		main_layout.addWidget(self.settings_panel)
-
-		# Create dialog button box
-		#self.button_box = QDialogButtonBox(
-		#	QDialogButtonBox.Ok | QDialogButtonBox.Cancel | QDialogButtonBox.Apply
-		#)
 
 		button_layout = QHBoxLayout()
 		button_layout.setContentsMargins(10, 10, 10, 10)
@@ -111,14 +96,12 @@ class PreferencesWindow(QDialog):
 		self.original_settings = self.config_manager.get_all().copy()
 
 	def _on_reset_button_clicked(self):
-		self.config_manager.reset_to_defaults()
-
-		# Reload settings in the panel
-		if hasattr(self.settings_panel, '_load_settings'):
-			self.settings_panel._load_settings()
+		"""Handle reset button click."""
+		# Use the settings panel's reset method
+		new_settings = self.settings_panel.reset_to_defaults()
 
 		# Update original settings to the new defaults
-		self.original_settings = self.config_manager.get_all().copy()
+		self.original_settings = new_settings.copy()
 
 		# Emit signal to update the main application
 		self.preferences_changed.emit(self.original_settings)
@@ -165,15 +148,22 @@ class PreferencesWindow(QDialog):
 		# Disable Apply button after applying
 		self.apply_button.setEnabled(False)
 
+	def _on_apply_clicked(self):
+		"""Handle Apply button click."""
+		self._apply_settings()
+
+		# Update original settings to current state
+		self.original_settings = self.config_manager.get_all().copy()
+
+		# Disable Apply button after applying
+		self.apply_button.setEnabled(False)
+
 	def _apply_settings(self):
 		"""Apply the current settings."""
-		# Trigger the settings panel's apply method
-		if hasattr(self.settings_panel, '_on_apply_clicked'):
-			self.settings_panel._on_apply_clicked()
+		# Use the settings panel's apply method
+		current_settings = self.settings_panel.apply_settings()
 
-		# The settings panel will emit settings_changed signal,
-		# which we forward to the main window
-		current_settings = self.config_manager.get_all()
+		# Emit signal to update the main application
 		self.preferences_changed.emit(current_settings)
 
 	def _save_geometry(self):
