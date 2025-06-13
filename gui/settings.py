@@ -130,28 +130,9 @@ class SettingsPanel(QWidget):
         self.tabs.addTab(self._create_camera_tab(), "Camera")
         self.tabs.addTab(self._create_app_tab(), "Application")
         
-        # Add control buttons at the bottom
-        button_layout = QHBoxLayout()
-        button_layout.setContentsMargins(0, 5, 0, 0)
-        
-        self.reset_button = QPushButton("Reset to Defaults")
-        self.reset_button.clicked.connect(self._on_reset_clicked)
-        
-        self.apply_button = QPushButton("Apply")
-        self.apply_button.clicked.connect(self._on_apply_clicked)
-        
-        button_layout.addWidget(self.reset_button)
-        button_layout.addStretch(1)
-        button_layout.addWidget(self.apply_button)
-
-        # Create a widget to hold the button layout (makes it easier to hide)
-        self.button_widget = QWidget()
-        self.button_widget.setLayout(button_layout)
-        
         # Add components to main layout
         main_layout.addWidget(self.tabs)
-        main_layout.addWidget(self.button_widget)
-        
+
         self.setLayout(main_layout)
 
         self._auto_connect_signals()
@@ -741,9 +722,6 @@ class SettingsPanel(QWidget):
         
         if model_type in self.available_models and self.available_models[model_type]:
             self.model_path_combo.addItems(self.available_models[model_type])
-        
-        # Enable apply button as settings have changed
-        self.apply_button.setEnabled(True)
     
     def _on_alert_sound_toggled(self, checked: bool):
         """
@@ -805,25 +783,6 @@ class SettingsPanel(QWidget):
         """
         # Nothing needed here as the ColorButton handles the UI update
         pass
-    
-    def _on_reset_clicked(self):
-        """Handle reset button click."""
-        # Reset configuration to defaults
-        self.config_manager.reset_to_defaults()
-        
-        # Reload settings
-        self._load_settings()
-        
-        # Emit signal to notify of changes
-        self.settings_changed.emit(self.config_manager.get_all())
-
-        # Enable apply button
-        self.apply_button.setEnabled(True)
-    
-    def _on_test_alert_clicked(self):
-        """Handle test alert button click."""
-        # Emit signal to request test alert
-        self.test_alert_requested.emit()
 
     def _on_alert_toggle_clicked(self, checked: bool):
         """Activate alert settings if we toggle the alert on"""
@@ -896,24 +855,20 @@ class SettingsPanel(QWidget):
                         )
                         if response == QMessageBox.Yes:
                             self.app_path_edit.setText(filename)
-    
-    def _on_apply_clicked(self):
-        """Handle apply button click."""
-        # Gather all settings from UI
+
+    def _get_current_settings(self):
+        """Get current settings from UI without saving them."""
         settings = {}
-        
+
         # Detection tab
-        # settings["detector_type"] = self.model_type_combo.currentText()
         settings["detector_type"] = self.MODEL_TYPE_MAPPING.get(self.model_type_combo.currentText(), "yunet")
-        settings["model_path"] = self.model_path_combo.currentText()  # This handles what model is actually used?
+        settings["model_path"] = self.model_path_combo.currentText()
         settings["confidence_threshold"] = self.face_confidence_spin.value()
         settings["gaze_threshold"] = self.gaze_confidence_spin.value()
         settings["face_threshold"] = self.face_threshold_spin.value()
         settings["debounce_time"] = self.debounce_spin.value()
         settings["detection_delay"] = self.detection_delay_spin.value()
-        # settings["show_detection_visualization"] = self.show_detection_check.isChecked()
-        # settings["privacy_mode"] = self.privacy_mode_check.isChecked()
-        
+
         # Alert tab
         settings["alert_on"] = self.screen_alert_radio.isChecked()
         settings["alert_opacity"] = self.alert_opacity_spin.value() / 100.0
@@ -923,6 +878,7 @@ class SettingsPanel(QWidget):
         settings["alert_position"] = "centre"
         settings["enable_animations"] = self.animations_check.isChecked()
         settings["fullscreen_mode"] = self.fullscreen_check.isChecked()
+
         # App launch settings
         settings["launch_app_enabled"] = self.launch_app_check.isChecked()
         settings["launch_app_path"] = self.app_path_edit.text()
@@ -933,17 +889,12 @@ class SettingsPanel(QWidget):
         else:
             settings["alert_duration"] = None
 
-        if self.MODEL_TYPE_MAPPING.get(self.model_type_combo.currentText()) == 'gaze':
-            self.gaze_confidence_spin.setEnabled(True)
-        else:
-            self.gaze_confidence_spin.setEnabled(False)
-        
         settings["alert_sound_enabled"] = self.alert_sound_check.isChecked()
         settings["alert_sound_file"] = self.alert_sound_edit.text()
-        
+
         # Camera tab
         settings["camera_id"] = self.camera_combo.currentIndex()
-        
+
         if self.resolution_combo.currentText() == "Custom":
             settings["frame_width"] = self.width_spin.value()
             settings["frame_height"] = self.height_spin.value()
@@ -957,16 +908,34 @@ class SettingsPanel(QWidget):
             elif self.resolution_combo.currentText() == "1920x1080 (Full HD)":
                 settings["frame_width"] = 1920
                 settings["frame_height"] = 1080
-        
+
         # App tab
         settings["start_on_boot"] = self.start_boot_check.isChecked()
         settings["start_minimized"] = self.start_minimized_check.isChecked()
         settings["always_on_top"] = self.always_top_check.isChecked()
         settings["minimize_to_tray"] = self.minimize_tray_check.isChecked()
-        
+        settings["snapshot_path"] = self.path_edit.text()
+
+        return settings
+
+    def apply_settings(self):
+        """Apply current UI settings to config manager."""
+        settings = self._get_current_settings()
+
         # Update configuration
         self.config_manager.update(settings)
         self.config_manager.save_config()
-        
-        # Emit signal to notify of changes
-        self.settings_changed.emit(settings)
+
+        # Handle gaze confidence spin enable/disable
+        if self.MODEL_TYPE_MAPPING.get(self.model_type_combo.currentText()) == 'gaze':
+            self.gaze_confidence_spin.setEnabled(True)
+        else:
+            self.gaze_confidence_spin.setEnabled(False)
+
+        return settings
+
+    def reset_to_defaults(self):
+        """Reset settings to defaults."""
+        self.config_manager.reset_to_defaults()
+        self._load_settings()
+        return self.config_manager.get_all()
