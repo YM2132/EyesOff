@@ -29,7 +29,7 @@ class PreferencesWindow(QDialog):
 		# Set window properties
 		self.setWindowTitle("Settings")  # TODO - NAME the file settings_window
 		self.setWindowModality(Qt.ApplicationModal)
-		self.setMinimumSize(600, 400)
+		self.setMinimumSize(600, 800)
 
 		# Initialize UI
 		self._init_ui()
@@ -59,11 +59,6 @@ class PreferencesWindow(QDialog):
 		button_layout = QHBoxLayout()
 		button_layout.setContentsMargins(10, 10, 10, 10)
 
-		# Customize button text for macOS style
-		#self.button_box.button(QDialogButtonBox.Ok).setText("OK")
-		#self.button_box.button(QDialogButtonBox.Cancel).setText("Cancel")
-		#self.button_box.button(QDialogButtonBox.Apply).setText("Apply")
-
 		self.reset_button = QPushButton("Reset to Defaults", self)
 		button_layout.addWidget(self.reset_button)
 
@@ -83,7 +78,7 @@ class PreferencesWindow(QDialog):
 		button_layout.addWidget(self.ok_button)
 
 		# Connect button signals
-		self.reset_button.clicked.connect(self._on_reset_button_clicked)
+		self.reset_button.clicked.connect(self._on_reset_button_clicked)  # TODO -- make only reset upon apply
 		self.cancel_button.clicked.connect(self._on_cancel_clicked)
 		self.apply_button.clicked.connect(self._on_apply_clicked)
 		self.ok_button.clicked.connect(self._on_ok_clicked)
