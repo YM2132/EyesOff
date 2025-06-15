@@ -213,13 +213,17 @@ class SettingsPanel(QWidget):
         container_layout.addWidget(self.alert_sensitivity_slider)
         container_layout.addLayout(labels_layout)
 
-        behaviour_layout.addRow("Alert Sensitivity:", container_layout)
+        behaviour_layout.addRow("Certainty Required to Alert:", container_layout)
 
         # Face threshold spinbox
         self.face_threshold_spin = QSpinBox()
         self.face_threshold_spin.setRange(1, 10)
         self.face_threshold_spin.setToolTip("Number of faces that will trigger the alert")
         behaviour_layout.addRow("Face Count Threshold:", self.face_threshold_spin)
+
+        # Auto-dismiss
+        self.auto_dismiss_check = QCheckBox()
+        behaviour_group.addRow("Auto-dismiss Alert?", self.auto_dismiss_check)
 
         behaviour_group.setLayout(behaviour_layout)
 
@@ -265,7 +269,7 @@ class SettingsPanel(QWidget):
 
         app_path_layout.addWidget(self.app_path_edit)
         app_path_layout.addWidget(self.app_browse_button)
-        push_notification_layout.addRow("Application Path:", app_path_layout)
+        push_notification_layout.addRow("Application to Laucnh:", app_path_layout)
 
         self.push_notification_group.setLayout(push_notification_layout)
 
@@ -310,10 +314,6 @@ class SettingsPanel(QWidget):
         self.alert_height_spin.setSingleStep(50)
         screen_alert_layout.addRow("Height:", self.alert_height_spin)
 
-        # Auto-dismiss
-        self.auto_dismiss_check = QCheckBox()
-        screen_alert_layout.addRow("Auto-dismiss Alert:", self.auto_dismiss_check)
-
         self.screen_alert_group.setLayout(screen_alert_layout)
 
         # Sound Settings Group (shared for both alert types)
@@ -351,190 +351,6 @@ class SettingsPanel(QWidget):
 
         tab.setLayout(layout)
         return tab
-
-    '''def _create_alert_tab(self) -> QWidget:
-        """
-        Create the alert settings tab with improved UX.
-
-        Returns:
-            QWidget: Alert settings tab
-        """
-        tab = QWidget()
-        layout = QVBoxLayout()
-        layout.setSpacing(15)
-
-        # 1. Alert Type Selection (Radio Buttons)
-        alert_type_group = QGroupBox("Alert Type")
-        alert_type_layout = QVBoxLayout()
-        alert_type_layout.setSpacing(10)
-
-        # Create radio buttons for the two options
-        self.notification_radio = QRadioButton("Push Notification")
-        self.notification_radio.setToolTip("Show a brief system notification in the corner")
-
-        self.screen_alert_radio = QRadioButton("Screen Alert")
-        self.screen_alert_radio.setToolTip("Show an attention-grabbing overlay on screen")
-
-        # Add radio buttons to layout
-        alert_type_layout.addWidget(self.notification_radio)
-        alert_type_layout.addWidget(self.screen_alert_radio)
-        alert_type_group.setLayout(alert_type_layout)
-
-        # Connect radio buttons to handler
-        self.notification_radio.toggled.connect(self._on_alert_type_changed)
-        self.screen_alert_radio.toggled.connect(self._on_alert_type_changed)
-
-        # 2. Screen Alert Configuration
-        self.screen_alert_config = QGroupBox("Configure Screen Alert")
-        screen_alert_layout = QFormLayout()
-        screen_alert_layout.setVerticalSpacing(12)
-
-        # Alert text
-        self.alert_text_edit = QLineEdit()
-        screen_alert_layout.addRow("Text:", self.alert_text_edit)
-
-        # Appearance with color and opacity - improved alignment
-        appearance_layout = QGridLayout()  # Use grid for better alignment
-        appearance_layout.setSpacing(10)
-
-        # Color in first column
-        appearance_layout.addWidget(QLabel("Color:"), 0, 0, Qt.AlignRight)
-        self.alert_color_button = ColorButton()
-        self.alert_color_button.color_changed.connect(self._on_alert_color_changed)
-        self.alert_color_button.setMinimumWidth(0)  # Ensure consistent width
-        appearance_layout.addWidget(self.alert_color_button, 0, 1)
-
-        # Opacity in second column, properly aligned
-        appearance_layout.addWidget(QLabel("Opacity:"), 0, 2, Qt.AlignRight)
-        self.alert_opacity_spin = QSpinBox()
-        self.alert_opacity_spin.setRange(10, 100)
-        self.alert_opacity_spin.setSuffix("%")
-        self.alert_opacity_spin.setMinimumWidth(0)
-        appearance_layout.addWidget(self.alert_opacity_spin, 0, 3)
-
-        # Add some stretching to keep alignment
-        appearance_layout.setColumnStretch(4, 1)
-
-        screen_alert_layout.addRow("Appearance:", appearance_layout)
-
-        # Display Options
-        display_options_group = QGroupBox("Display Options")
-        display_options_layout = QVBoxLayout()
-        display_options_layout.setContentsMargins(12, 12, 12, 12)  # Add more padding
-        display_options_layout.setSpacing(10)  # Increase spacing between elements
-
-        # Set minimum height to ensure it's larger
-        display_options_group.setMinimumHeight(0)  # Slightly taller to accommodate added controls
-
-        # Animation effects
-        self.animations_check = QCheckBox("Animation effects")
-        display_options_layout.addWidget(self.animations_check)
-
-        # Fullscreen mode
-        self.fullscreen_check = QCheckBox("Fullscreen mode")
-        self.fullscreen_check.setToolTip("Display alert in fullscreen mode (covers entire screen)")
-        display_options_layout.addWidget(self.fullscreen_check)
-
-        # Size controls
-        size_layout = QGridLayout()
-        size_layout.setHorizontalSpacing(10)
-        size_layout.setVerticalSpacing(10)
-
-        # Add label in its own column
-        size_layout.addWidget(QLabel("Size:"), 0, 0, Qt.AlignRight)
-
-        # Width controls
-        size_layout.addWidget(QLabel("Width:"), 0, 1)
-        self.alert_width_spin = QSpinBox()
-        self.alert_width_spin.setRange(200, 1200)
-        self.alert_width_spin.setSingleStep(50)
-        self.alert_width_spin.setMinimumHeight(18)
-        size_layout.addWidget(self.alert_width_spin, 0, 2)
-
-        # Height controls
-        size_layout.addWidget(QLabel("Height:"), 0, 3)
-        self.alert_height_spin = QSpinBox()
-        self.alert_height_spin.setRange(100, 800)
-        self.alert_height_spin.setSingleStep(50)
-        self.alert_height_spin.setMinimumHeight(18)
-        size_layout.addWidget(self.alert_height_spin, 0, 4)
-
-        # Add stretch to maintain alignment
-        size_layout.setColumnStretch(5, 1)
-        display_options_layout.addLayout(size_layout)
-
-        # Auto-dismiss control - MOVED here inside the Display Options
-        auto_dismiss_layout = QHBoxLayout()
-        self.auto_dismiss_check = QCheckBox("Auto-dismiss alert?")
-        auto_dismiss_layout.addWidget(self.auto_dismiss_check)
-        auto_dismiss_layout.addStretch(1)
-        display_options_layout.addLayout(auto_dismiss_layout)
-
-        auto_dismiss_layout.addStretch(1)
-        display_options_layout.addLayout(auto_dismiss_layout)
-
-        display_options_group.setLayout(display_options_layout)
-        screen_alert_layout.addRow(display_options_group)
-
-        self.screen_alert_config.setLayout(screen_alert_layout)
-
-        # 3. Sound Settings (Common for both alert types)
-        sound_group = QGroupBox("Sound Settings")
-        sound_layout = QFormLayout()
-
-        # Play sound checkbox
-        self.alert_sound_check = QCheckBox()
-        self.alert_sound_check.toggled.connect(self._on_alert_sound_toggled)
-        sound_layout.addRow("Play Sound:", self.alert_sound_check)
-
-        # Sound file selection
-        sound_file_layout = QHBoxLayout()
-        self.alert_sound_edit = QLineEdit()
-        self.alert_sound_edit.setEnabled(False)
-
-        self.sound_browse_button = QPushButton("Browse...")
-        self.sound_browse_button.setEnabled(False)
-        self.sound_browse_button.clicked.connect(self._on_sound_browse_clicked)
-
-        sound_file_layout.addWidget(self.alert_sound_edit)
-        sound_file_layout.addWidget(self.sound_browse_button)
-
-        sound_layout.addRow("Sound File:", sound_file_layout)
-        sound_group.setLayout(sound_layout)
-
-        # 4. Application Launch (Only for Push Notifications)
-        self.app_launch_group = QGroupBox("Launch External Application")
-        app_launch_layout = QVBoxLayout()
-
-        # Launch app checkbox
-        self.launch_app_check = QCheckBox("Launch application when alert triggered")
-        self.launch_app_check.toggled.connect(self._on_launch_app_toggled)
-        app_launch_layout.addWidget(self.launch_app_check)
-
-        # App selection
-        app_path_layout = QHBoxLayout()
-        app_path_layout.addWidget(QLabel("Application:"))
-        self.app_path_edit = QLineEdit()
-        self.app_path_edit.setEnabled(False)
-        app_path_layout.addWidget(self.app_path_edit)
-
-        self.app_browse_button = QPushButton("Browse...")
-        self.app_browse_button.setEnabled(False)
-        self.app_browse_button.clicked.connect(self._on_app_browse_clicked)
-        app_path_layout.addWidget(self.app_browse_button)
-
-        app_launch_layout.addLayout(app_path_layout)
-        self.app_launch_group.setLayout(app_launch_layout)
-
-        # Add all groups to tab layout
-        layout.addWidget(alert_type_group)
-        layout.addWidget(self.screen_alert_config)
-        layout.addWidget(sound_group)
-        layout.addWidget(self.app_launch_group)
-        layout.addStretch(1)
-
-        tab.setLayout(layout)
-        return tab'''
 
     def _on_alert_type_changed(self):
         """Handle alert type radio button change."""
@@ -625,35 +441,6 @@ class SettingsPanel(QWidget):
         """
         tab = QWidget()
         layout = QVBoxLayout()
-
-        # TODO - Reactivate these components and make them work
-        # Startup group
-        startup_group = QGroupBox("Startup")
-        startup_layout = QFormLayout()
-        
-        # Start at boot
-        self.start_boot_check = QCheckBox()
-        startup_layout.addRow("Start on System Boot:", self.start_boot_check)
-        
-        # Start minimized
-        self.start_minimized_check = QCheckBox()
-        startup_layout.addRow("Start Minimized:", self.start_minimized_check)
-        
-        #startup_group.setLayout(startup_layout)
-        
-        # UI settings group
-        ui_group = QGroupBox("User Interface")
-        ui_layout = QFormLayout()
-        
-        # Always on top
-        self.always_top_check = QCheckBox()
-        ui_layout.addRow("Always on Top:", self.always_top_check)
-        
-        # Minimize to tray
-        self.minimize_tray_check = QCheckBox()
-        ui_layout.addRow("Minimize to System Tray:", self.minimize_tray_check)
-        
-        #ui_group.setLayout(ui_layout)
 
         # Snapshot saving path group
         snapshot_group = QGroupBox("Path to save snapshots")
@@ -831,11 +618,6 @@ class SettingsPanel(QWidget):
                 self.width_spin.setValue(frame_width)
                 self.height_spin.setValue(frame_height)
 
-            # App tab
-            self.start_boot_check.setChecked(self.config_manager.get("start_on_boot", False))
-            self.start_minimized_check.setChecked(self.config_manager.get("start_minimized", False))
-            self.always_top_check.setChecked(self.config_manager.get("always_on_top", False))
-            self.minimize_tray_check.setChecked(self.config_manager.get("minimize_to_tray", True))
             # Add setting for getting the snapshot path
             self.path_edit.setText(self.config_manager.get("snapshot_path", ""))
 
