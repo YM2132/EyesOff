@@ -194,33 +194,8 @@ class SettingsPanel(QWidget):
         tab = QWidget()
         layout = QVBoxLayout()
         
-        # Model selection group
-        model_group = QGroupBox("Detection Model")
-        model_layout = QFormLayout()
-        
-        # Model type combo box
-        self.model_type_combo = QComboBox()
-        self.model_type_combo.addItems(list(self.MODEL_TYPE_MAPPING.keys()))
-        self.model_type_combo.currentTextChanged.connect(self._on_model_type_changed)
-        self.model_type_combo.setToolTip('"Face" detects only when faces enter the frame | "Gaze" detects when people are looking at your screen')
-        model_layout.addRow("Model Type:", self.model_type_combo)
-        
-        # Model selection combo box
-        self.model_path_combo = QComboBox()
-
-        # Face confidence threshold
-        self.face_confidence_spin = QDoubleSpinBox()
-        self.face_confidence_spin.setRange(0.1, 1.0)
-        self.face_confidence_spin.setSingleStep(0.05)
-        self.face_confidence_spin.setDecimals(2)
-        self.face_confidence_spin.setValue(0.75)  # Default value
-        self.face_confidence_spin.setToolTip("Minimum confidence threshold for face detection")
-        # model_layout.addRow("Face Confidence Threshold:", self.face_confidence_spin) TODO - remove and link to alert_sensitivity
-        
-        model_group.setLayout(model_layout)
-        
         # Alert threshold group
-        threshold_group = QGroupBox("Alert Settings")
+        threshold_group = QGroupBox("Alert")
         threshold_layout = QFormLayout()
 
         self.alert_sensitivity_slider = QSlider(Qt.Horizontal)
@@ -246,28 +221,9 @@ class SettingsPanel(QWidget):
         self.face_threshold_spin.setRange(1, 10)
         self.face_threshold_spin.setToolTip("Number of faces that will trigger the alert")
         threshold_layout.addRow("Face Count Threshold:", self.face_threshold_spin)
-        
-        # Debounce time
-        self.debounce_spin = QDoubleSpinBox()
-        self.debounce_spin.setRange(0.1, 5.0)
-        self.debounce_spin.setSingleStep(0.1)
-        self.debounce_spin.setDecimals(1)
-        self.debounce_spin.setToolTip("Time in seconds to wait before changing alert state")
-        threshold_layout.addRow("Debounce Time (s):", self.debounce_spin)
-        
-        # Detection verification delay
-        self.detection_delay_spin = QDoubleSpinBox()
-        self.detection_delay_spin.setRange(0.0, 2.0)
-        self.detection_delay_spin.setSingleStep(0.05)
-        self.detection_delay_spin.setDecimals(2)
-        self.detection_delay_spin.setValue(0.2)
-        self.detection_delay_spin.setToolTip("Time to confirm detection before showing alert")
-        threshold_layout.addRow("Detection Delay (s):", self.detection_delay_spin)
-        
+
         threshold_group.setLayout(threshold_layout)
-        
-        # Add all groups to tab layout
-        layout.addWidget(model_group)
+
         layout.addWidget(threshold_group)
         layout.addStretch(1)
         
@@ -616,28 +572,48 @@ class SettingsPanel(QWidget):
         layout = QVBoxLayout()
 
         # ADD Advanced settings from here on out -
+        advanced_detection_group = QGroupBox("Model")
+        advanced_detection_layout = QFormLayout()
 
-        # Add model type choice box here -
-        model_group = QGroupBox("Model Settings")
-        snapshot_group = QGroupBox("Path to save snapshots")
-        snapshot_layout = QFormLayout()
+        # Model type combo box
+        self.model_type_combo = QComboBox()
+        self.model_type_combo.addItems(list(self.MODEL_TYPE_MAPPING.keys()))
+        self.model_type_combo.currentTextChanged.connect(self._on_model_type_changed)
+        self.model_type_combo.setToolTip(
+            '"Face" detects only when faces enter the frame | "Gaze" detects when people are looking at your screen')
+        advanced_detection_layout.addRow("Model Type:", self.model_type_combo)
 
-        # Selection for path to save snapshots
-        path_layout = QHBoxLayout()
-        self.path_edit = QLineEdit()
+        # Model selection combo box
+        self.model_path_combo = QComboBox()
 
-        path_browse_button = QPushButton("Browse...")
-        path_browse_button.clicked.connect(self._on_path_browse_clicked)
+        advanced_detection_group.setLayout(advanced_detection_layout)
 
-        path_layout.addWidget(self.path_edit)
-        path_layout.addWidget(path_browse_button)
+        # Alert threshold group
+        threshold_group = QGroupBox("Alert")
+        threshold_layout = QFormLayout()
 
-        snapshot_layout.addRow("Path:", path_layout)
+        # Debounce time
+        self.debounce_spin = QDoubleSpinBox()
+        self.debounce_spin.setRange(0.1, 5.0)
+        self.debounce_spin.setSingleStep(0.1)
+        self.debounce_spin.setDecimals(1)
+        self.debounce_spin.setToolTip("Time in seconds to wait before changing alert state")
+        threshold_layout.addRow("Debounce Time (s):", self.debounce_spin)
 
-        snapshot_group.setLayout(snapshot_layout)
+        # Detection verification delay
+        self.detection_delay_spin = QDoubleSpinBox()
+        self.detection_delay_spin.setRange(0.0, 2.0)
+        self.detection_delay_spin.setSingleStep(0.05)
+        self.detection_delay_spin.setDecimals(2)
+        self.detection_delay_spin.setValue(0.2)
+        self.detection_delay_spin.setToolTip("Time to confirm detection before showing alert")
+        threshold_layout.addRow("Detection Delay (s):", self.detection_delay_spin)
+
+        threshold_group.setLayout(threshold_layout)
 
         # Add all groups to tab layout
-        layout.addWidget(snapshot_group)
+        layout.addWidget(advanced_detection_group)
+        layout.addWidget(threshold_group)
         layout.addStretch(1)
 
         tab.setLayout(layout)
@@ -662,8 +638,6 @@ class SettingsPanel(QWidget):
             if index >= 0:
                 self.model_path_combo.setCurrentIndex(index)
 
-            # self.confidence_spin.setValue(self.config_manager.get("confidence_threshold", 0.5))
-            self.face_confidence_spin.setValue(self.config_manager.get("confidence_threshold", 0.75)) # TODO - For now this can stay as is, however it should be adapted to be based off of the gaze_threshold and removed from the settings UI
             self.face_threshold_spin.setValue(self.config_manager.get("face_threshold", 1))
             self.debounce_spin.setValue(self.config_manager.get("debounce_time", 1.0))
             self.detection_delay_spin.setValue(self.config_manager.get("detection_delay", 0.2))
@@ -906,15 +880,23 @@ class SettingsPanel(QWidget):
         """Convert threshold (0.0-1.0) to slider value (0-100)"""
         return int(threshold * 100)
 
+    def _gaze_to_face_threshold(self, gaze_confidence):
+        face_threshold = min(gaze_confidence * 1.2, 0.95)  # cap face threshold to 0.95
+
+        return face_threshold
+
     def _get_current_settings(self):
         """Get current settings from UI without saving them."""
         settings = {}
 
+        gaze_threshold_value = self._slider_to_threshold(self.alert_sensitivity_slider.value())
+
         # Detection tab
         settings["detector_type"] = self.MODEL_TYPE_MAPPING.get(self.model_type_combo.currentText(), "yunet")
         settings["model_path"] = self.model_path_combo.currentText()
-        settings["confidence_threshold"] = self.face_confidence_spin.value()
-        settings["gaze_threshold"] = self._slider_to_threshold(self.alert_sensitivity_slider.value())
+        # Confidence threshold is a measure of how confident we are something is a face - it is now linked to the gaze_threshold.
+        settings["confidence_threshold"] = self._gaze_to_face_threshold(gaze_threshold_value)
+        settings["gaze_threshold"] = gaze_threshold_value
         settings["face_threshold"] = self.face_threshold_spin.value()
         settings["debounce_time"] = self.debounce_spin.value()
         settings["detection_delay"] = self.detection_delay_spin.value()
