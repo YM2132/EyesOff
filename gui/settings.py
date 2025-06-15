@@ -129,6 +129,7 @@ class SettingsPanel(QWidget):
         self.tabs.addTab(self._create_alert_tab(), "Alert")
         self.tabs.addTab(self._create_camera_tab(), "Camera")
         self.tabs.addTab(self._create_app_tab(), "Application")
+        self.tabs.addTab(self._create_advanced_tab(), "Advanced")
         
         # Add components to main layout
         main_layout.addWidget(self.tabs)
@@ -215,6 +216,12 @@ class SettingsPanel(QWidget):
         self.face_confidence_spin.setValue(0.75)  # Default value
         self.face_confidence_spin.setToolTip("Minimum confidence threshold for face detection")
         # model_layout.addRow("Face Confidence Threshold:", self.face_confidence_spin) TODO - remove and link to alert_sensitivity
+        
+        model_group.setLayout(model_layout)
+        
+        # Alert threshold group
+        threshold_group = QGroupBox("Alert Settings")
+        threshold_layout = QFormLayout()
 
         self.alert_sensitivity_slider = QSlider(Qt.Horizontal)
         self.alert_sensitivity_slider.setRange(0, 100)
@@ -232,14 +239,8 @@ class SettingsPanel(QWidget):
         container_layout.addWidget(self.alert_sensitivity_slider)
         container_layout.addLayout(labels_layout)
 
-        model_layout.addRow("Alert Sensitivity:", container_layout)
-        
-        model_group.setLayout(model_layout)
-        
-        # Alert threshold group
-        threshold_group = QGroupBox("Alert Threshold")
-        threshold_layout = QFormLayout()
-        
+        threshold_layout.addRow("Alert Sensitivity:", container_layout)
+
         # Face threshold spinbox
         self.face_threshold_spin = QSpinBox()
         self.face_threshold_spin.setRange(1, 10)
@@ -598,11 +599,47 @@ class SettingsPanel(QWidget):
         snapshot_group.setLayout(snapshot_layout)
         
         # Add all groups to tab layout
-        #layout.addWidget(startup_group)
-        #layout.addWidget(ui_group)
         layout.addWidget(snapshot_group)
         layout.addStretch(1)
         
+        tab.setLayout(layout)
+        return tab
+
+    def _create_advanced_tab(self) -> QWidget:
+        """
+            Create the advanced settings tab.
+
+            Returns:
+                QWidget: Advanced settings tab
+        """
+        tab = QWidget()
+        layout = QVBoxLayout()
+
+        # ADD Advanced settings from here on out -
+
+        # Add model type choice box here -
+        model_group = QGroupBox("Model Settings")
+        snapshot_group = QGroupBox("Path to save snapshots")
+        snapshot_layout = QFormLayout()
+
+        # Selection for path to save snapshots
+        path_layout = QHBoxLayout()
+        self.path_edit = QLineEdit()
+
+        path_browse_button = QPushButton("Browse...")
+        path_browse_button.clicked.connect(self._on_path_browse_clicked)
+
+        path_layout.addWidget(self.path_edit)
+        path_layout.addWidget(path_browse_button)
+
+        snapshot_layout.addRow("Path:", path_layout)
+
+        snapshot_group.setLayout(snapshot_layout)
+
+        # Add all groups to tab layout
+        layout.addWidget(snapshot_group)
+        layout.addStretch(1)
+
         tab.setLayout(layout)
         return tab
 
