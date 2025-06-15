@@ -76,7 +76,7 @@ class MainWindow(QMainWindow):
         # Disable full-screen capability
         self.setWindowFlags((self.windowFlags() & ~Qt.WindowFullscreenButtonHint & ~Qt.WindowMaximizeButtonHint) | Qt.CustomizeWindowHint)
 
-        self.setMinimumSize(1000, 600)
+        self.setMinimumSize(1000, 800)
         
         # Create central widget
         central_widget = QWidget()
