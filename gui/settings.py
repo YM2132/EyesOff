@@ -126,7 +126,7 @@ class SettingsPanel(QWidget):
         
         # Create the various setting tabs
         self.tabs.addTab(self._create_detection_tab(), "Detection")
-        self.tabs.addTab(self._create_alert_tab(), "Alert")
+        #self.tabs.addTab(self._create_alert_tab(), "Alert")
         self.tabs.addTab(self._create_camera_tab(), "Camera")
         self.tabs.addTab(self._create_app_tab(), "Application")
         self.tabs.addTab(self._create_advanced_tab(), "Advanced")
@@ -183,20 +183,19 @@ class SettingsPanel(QWidget):
         # The receiver can call get_current_settings() if needed
         self.settings_changed.emit({})
 
-    
     def _create_detection_tab(self) -> QWidget:
         """
         Create the detection settings tab.
-        
+
         Returns:
             QWidget: Detection settings tab
         """
         tab = QWidget()
         layout = QVBoxLayout()
-        
+
         # Alert threshold group
-        threshold_group = QGroupBox("Alert")
-        threshold_layout = QFormLayout()
+        behaviour_group = QGroupBox("Alert Behaviour")
+        behaviour_layout = QFormLayout()
 
         self.alert_sensitivity_slider = QSlider(Qt.Horizontal)
         self.alert_sensitivity_slider.setRange(0, 100)
@@ -214,23 +213,146 @@ class SettingsPanel(QWidget):
         container_layout.addWidget(self.alert_sensitivity_slider)
         container_layout.addLayout(labels_layout)
 
-        threshold_layout.addRow("Alert Sensitivity:", container_layout)
+        behaviour_layout.addRow("Alert Sensitivity:", container_layout)
 
         # Face threshold spinbox
         self.face_threshold_spin = QSpinBox()
         self.face_threshold_spin.setRange(1, 10)
         self.face_threshold_spin.setToolTip("Number of faces that will trigger the alert")
-        threshold_layout.addRow("Face Count Threshold:", self.face_threshold_spin)
+        behaviour_layout.addRow("Face Count Threshold:", self.face_threshold_spin)
 
-        threshold_group.setLayout(threshold_layout)
+        behaviour_group.setLayout(behaviour_layout)
 
-        layout.addWidget(threshold_group)
+        # Alert Type Selection Group
+        alert_type_group = QGroupBox("Alert Type")
+        alert_type_layout = QVBoxLayout()
+        alert_type_layout.setSpacing(10)
+
+        # Create radio buttons for the two options
+        self.notification_radio = QRadioButton("Push Notification")
+        self.notification_radio.setToolTip("Show a brief system notification in the corner")
+
+        self.screen_alert_radio = QRadioButton("Screen Alert")
+        self.screen_alert_radio.setToolTip("Show an attention-grabbing overlay on screen")
+
+        # Add radio buttons to layout
+        alert_type_layout.addWidget(self.notification_radio)
+        alert_type_layout.addWidget(self.screen_alert_radio)
+        alert_type_group.setLayout(alert_type_layout)
+
+        # Connect radio buttons to handler
+        self.notification_radio.toggled.connect(self._on_alert_type_changed)
+        self.screen_alert_radio.toggled.connect(self._on_alert_type_changed)
+
+        # Push Notification Settings Group
+        self.push_notification_group = QGroupBox("Push Notification Settings")
+        push_notification_layout = QFormLayout()
+        push_notification_layout.setVerticalSpacing(12)
+
+        # Launch app checkbox
+        self.launch_app_check = QCheckBox()
+        self.launch_app_check.toggled.connect(self._on_launch_app_toggled)
+        push_notification_layout.addRow("Launch External App:", self.launch_app_check)
+
+        # App selection
+        app_path_layout = QHBoxLayout()
+        self.app_path_edit = QLineEdit()
+        self.app_path_edit.setEnabled(False)
+
+        self.app_browse_button = QPushButton("Browse...")
+        self.app_browse_button.setEnabled(False)
+        self.app_browse_button.clicked.connect(self._on_app_browse_clicked)
+
+        app_path_layout.addWidget(self.app_path_edit)
+        app_path_layout.addWidget(self.app_browse_button)
+        push_notification_layout.addRow("Application Path:", app_path_layout)
+
+        self.push_notification_group.setLayout(push_notification_layout)
+
+        # Screen Alert Settings Group
+        self.screen_alert_group = QGroupBox("Screen Alert Settings")
+        screen_alert_layout = QFormLayout()
+        screen_alert_layout.setVerticalSpacing(12)
+
+        # Alert text
+        self.alert_text_edit = QLineEdit()
+        screen_alert_layout.addRow("Alert Message:", self.alert_text_edit)
+
+        # Color selection
+        self.alert_color_button = ColorButton()
+        self.alert_color_button.color_changed.connect(self._on_alert_color_changed)
+        screen_alert_layout.addRow("Alert Color:", self.alert_color_button)
+
+        # Opacity
+        self.alert_opacity_spin = QSpinBox()
+        self.alert_opacity_spin.setRange(10, 100)
+        self.alert_opacity_spin.setSuffix("%")
+        screen_alert_layout.addRow("Opacity:", self.alert_opacity_spin)
+
+        # Animation effects
+        self.animations_check = QCheckBox()
+        screen_alert_layout.addRow("Animation Effects:", self.animations_check)
+
+        # Fullscreen mode
+        self.fullscreen_check = QCheckBox()
+        self.fullscreen_check.setToolTip("Display alert in fullscreen mode (covers entire screen)")
+        screen_alert_layout.addRow("Fullscreen Mode:", self.fullscreen_check)
+
+        # Width
+        self.alert_width_spin = QSpinBox()
+        self.alert_width_spin.setRange(200, 1200)
+        self.alert_width_spin.setSingleStep(50)
+        screen_alert_layout.addRow("Width:", self.alert_width_spin)
+
+        # Height
+        self.alert_height_spin = QSpinBox()
+        self.alert_height_spin.setRange(100, 800)
+        self.alert_height_spin.setSingleStep(50)
+        screen_alert_layout.addRow("Height:", self.alert_height_spin)
+
+        # Auto-dismiss
+        self.auto_dismiss_check = QCheckBox()
+        screen_alert_layout.addRow("Auto-dismiss Alert:", self.auto_dismiss_check)
+
+        self.screen_alert_group.setLayout(screen_alert_layout)
+
+        # Sound Settings Group (shared for both alert types)
+        sound_group = QGroupBox("Sound Settings")
+        sound_layout = QFormLayout()
+        sound_layout.setVerticalSpacing(12)
+
+        # Play sound checkbox
+        self.alert_sound_check = QCheckBox()
+        self.alert_sound_check.toggled.connect(self._on_alert_sound_toggled)
+        sound_layout.addRow("Play Sound:", self.alert_sound_check)
+
+        # Sound file selection
+        sound_file_layout = QHBoxLayout()
+        self.alert_sound_edit = QLineEdit()
+        self.alert_sound_edit.setEnabled(False)
+
+        self.sound_browse_button = QPushButton("Browse...")
+        self.sound_browse_button.setEnabled(False)
+        self.sound_browse_button.clicked.connect(self._on_sound_browse_clicked)
+
+        sound_file_layout.addWidget(self.alert_sound_edit)
+        sound_file_layout.addWidget(self.sound_browse_button)
+        sound_layout.addRow("Sound File:", sound_file_layout)
+
+        sound_group.setLayout(sound_layout)
+
+        # Add all groups to tab layout
+        layout.addWidget(behaviour_group)
+        layout.addWidget(alert_type_group)
+        layout.addWidget(self.push_notification_group)
+        layout.addWidget(self.screen_alert_group)
+        layout.addWidget(sound_group)
         layout.addStretch(1)
-        
+
         tab.setLayout(layout)
         return tab
 
-    def _create_alert_tab(self) -> QWidget:
+    '''def _create_alert_tab(self) -> QWidget:
         """
         Create the alert settings tab with improved UX.
 
@@ -412,19 +534,16 @@ class SettingsPanel(QWidget):
         layout.addStretch(1)
 
         tab.setLayout(layout)
-        return tab
+        return tab'''
 
     def _on_alert_type_changed(self):
         """Handle alert type radio button change."""
         use_screen_alert = self.screen_alert_radio.isChecked()
         use_notification = self.notification_radio.isChecked()
 
-        # Show/hide the screen alert configuration based on selection
-        self.screen_alert_config.setVisible(use_screen_alert)
-
-        # Show/hide the app launch group based on selection
-        # Only show app launch for push notifications, NOT for screen alerts
-        self.app_launch_group.setVisible(use_notification)
+        # Show/hide the appropriate settings groups
+        self.screen_alert_group.setVisible(use_screen_alert)
+        self.push_notification_group.setVisible(use_notification)
 
         # Update internal state
         if hasattr(self, 'alert_on_check'):  # For backward compatibility
@@ -571,6 +690,7 @@ class SettingsPanel(QWidget):
         tab = QWidget()
         layout = QVBoxLayout()
 
+        # TODO - Make the settings simpler
         # ADD Advanced settings from here on out -
         advanced_detection_group = QGroupBox("Model")
         advanced_detection_layout = QFormLayout()
@@ -654,8 +774,8 @@ class SettingsPanel(QWidget):
                 self.notification_radio.setChecked(True)
 
             # Show/hide configurations based on alert type
-            self.screen_alert_config.setVisible(alert_on)
-            self.app_launch_group.setVisible(not alert_on)  # Only show for push notifications
+            self.screen_alert_group.setVisible(alert_on)
+            self.push_notification_group.setVisible(not alert_on)  # Only show for push notifications
 
             # Change from slider to spinner for opacity
             opacity_percentage = int(self.config_manager.get("alert_opacity", 0.8) * 100)
