@@ -93,6 +93,10 @@ class ConfigManager:
 
             # App version
             "app_version": "1.1.0",
+            
+            # First run and help settings
+            "first_run": True,
+            "walkthrough_completed": False,
         }
     
     def _load_config(self):
