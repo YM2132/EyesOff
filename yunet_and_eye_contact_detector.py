@@ -319,16 +319,20 @@ class GazeDetector:
 				x, y, w, h = bbox
 				score = scores[i]
 
-				# Determine color based on score (green to red)
-				coloridx = 9 - min(int(round(score * 10)), 9)
-
-				# Convert color from hex to BGR
-				color_rgb = Color(self.colors[coloridx].hex).rgb
-				box_color = (
-					int(color_rgb[2] * 255),  # B
-					int(color_rgb[1] * 255),  # G
-					int(color_rgb[0] * 255)  # R
-				)
+				# Determine color based on score and threshold
+				# Green: definitely not looking (score < threshold - 0.15)
+				# Orange: maybe looking (threshold - 0.15 <= score < threshold)
+				# Red: definitely looking (score >= threshold)
+				
+				if score >= self.gaze_threshold:
+					# Red - definitely looking at screen
+					box_color = (0, 0, 255)  # BGR format
+				elif score >= self.gaze_threshold - 0.15:
+					# Orange - maybe looking
+					box_color = (0, 165, 255)  # BGR format for orange
+				else:
+					# Green - not looking
+					box_color = (0, 255, 0)  # BGR format
 
 				# Draw rectangle with OpenCV (not PIL)
 				start_point = (x, y)

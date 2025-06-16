@@ -4,11 +4,11 @@ from typing import List, Tuple, Dict, Any, Optional
 
 import cv2
 import numpy as np
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, pyqtSlot, QRect, QPoint
+from PyQt5.QtGui import QPixmap, QImage, QPainter, QPen, QBrush, QFont, QColor
 from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QCheckBox, QSizePolicy
 
-from utils.display import cv_to_pixmap, apply_privacy_blur, apply_pixelation, draw_detection_info
+from utils.display import cv_to_pixmap, apply_privacy_blur, apply_pixelation
 
 
 class WebcamView(QWidget):
@@ -36,6 +36,7 @@ class WebcamView(QWidget):
         self.frame_count = 0
         self.last_fps_time = time.time()
         self.is_monitoring = True
+        self.scaled_pixmap = None
         
         # Initialize UI
         self._init_ui()
@@ -179,43 +180,83 @@ class WebcamView(QWidget):
         if self.current_frame is None:
             return
 
-        # Start with the annotated frame from detection
+        # Start with the annotated frame from detection (includes bounding boxes)
         display_frame = self.detection_result.copy()
 
         # Apply privacy mode if enabled
         if self.privacy_mode and self.bboxes:
             display_frame = apply_pixelation(display_frame, self.bboxes)
 
-        # Get the original frame dimensions
-        original_height, original_width = display_frame.shape[:2]
-
-        # Calculate scale factor for text size based on current display size
-        # This ensures HUD elements scale appropriately
-        scale_factor = max(1.0, original_width / 640.0)  # Use 640 as a reference size
-
-        # Draw detection information with appropriate text size
-        display_frame = draw_detection_info(
-            display_frame,
-            self.num_faces,
-            self.fps,
-            self.face_threshold,
-            self.alert_active,
-            text_scale=scale_factor  # Pass scale factor to drawing function
-        )
-
         # Convert to QPixmap
         pixmap = cv_to_pixmap(display_frame)
 
         # Scale the pixmap to fit the label size while maintaining aspect ratio
         label_size = self.webcam_label.size()
-        scaled_pixmap = pixmap.scaled(
+        self.scaled_pixmap = pixmap.scaled(
             label_size,
             Qt.KeepAspectRatio,
             Qt.SmoothTransformation
         )
 
-        # Set the pixmap in the label
-        self.webcam_label.setPixmap(scaled_pixmap)
+        # Create custom pixmap with overlays
+        self._draw_overlays()
+    
+    def _draw_overlays(self):
+        """Draw UI overlays using PyQt."""
+        # Create a new pixmap to draw on
+        final_pixmap = self.scaled_pixmap.copy()
+        painter = QPainter(final_pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        # Draw info panel
+        self._draw_info_panel(painter)
+        
+        painter.end()
+        
+        # Set the final pixmap
+        self.webcam_label.setPixmap(final_pixmap)
+    
+    def _draw_info_panel(self, painter: QPainter):
+        """Draw the info panel with detection information."""
+        # Prepare background panel
+        panel_width = 250
+        panel_height = 85
+        panel_rect = QRect(10, 10, panel_width, panel_height)
+        
+        # Semi-transparent black background
+        painter.fillRect(panel_rect, QColor(0, 0, 0, 200))
+        
+        # White border
+        painter.setPen(QPen(Qt.white, 1))
+        painter.drawRect(panel_rect)
+        
+        # Face count text with color based on threshold
+        face_color = QColor(255, 0, 0) if self.num_faces > self.face_threshold else QColor(0, 255, 0)
+        font = QFont("Arial", 16, QFont.Bold)
+        painter.setFont(font)
+        painter.setPen(QPen(face_color))
+        painter.drawText(20, 40, f"Faces: {self.num_faces}")
+        
+        # FPS counter
+        fps_font = QFont("Arial", 12)
+        painter.setFont(fps_font)
+        painter.setPen(QPen(Qt.white))
+        painter.drawText(20, 70, f"FPS: {self.fps:.1f}")
+        
+        # Alert indicator
+        if self.alert_active:
+            # Draw a red circle with exclamation mark
+            indicator_x = self.scaled_pixmap.width() - 30
+            indicator_y = 30
+            
+            painter.setBrush(QBrush(QColor(255, 0, 0)))
+            painter.setPen(Qt.NoPen)
+            painter.drawEllipse(QPoint(indicator_x, indicator_y), 15, 15)
+            
+            # Draw exclamation mark
+            painter.setPen(QPen(Qt.white, 2))
+            painter.setFont(QFont("Arial", 16, QFont.Bold))
+            painter.drawText(indicator_x - 4, indicator_y + 6, "!")
     
     def set_privacy_mode(self, enabled: bool):
         """

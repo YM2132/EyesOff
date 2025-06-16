@@ -844,10 +844,6 @@ class SettingsPanel(QWidget):
                 settings["frame_height"] = 1080
 
         # App tab
-        settings["start_on_boot"] = self.start_boot_check.isChecked()
-        settings["start_minimized"] = self.start_minimized_check.isChecked()
-        settings["always_on_top"] = self.always_top_check.isChecked()
-        settings["minimize_to_tray"] = self.minimize_tray_check.isChecked()
         settings["snapshot_path"] = self.path_edit.text()
 
         return settings
