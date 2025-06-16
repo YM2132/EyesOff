@@ -223,7 +223,7 @@ class SettingsPanel(QWidget):
 
         # Auto-dismiss
         self.auto_dismiss_check = QCheckBox()
-        behaviour_group.addRow("Auto-dismiss Alert?", self.auto_dismiss_check)
+        behaviour_layout.addRow("Auto-dismiss Alert?", self.auto_dismiss_check)
 
         behaviour_group.setLayout(behaviour_layout)
 

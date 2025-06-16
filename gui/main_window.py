@@ -17,6 +17,7 @@ from gui.alert import AlertDialog
 from gui.preferences_window import PreferencesWindow
 from gui.webcam_view import WebcamView
 from gui.update_view import UpdateView
+from gui.help.walkthrough import WalkthroughDialog
 from utils.config import ConfigManager
 from utils.platform import get_platform_manager
 
@@ -67,6 +68,9 @@ class MainWindow(QMainWindow):
         # Auto-start if configured
         if not self.config_manager.get("start_minimized", False):
             self._start_monitoring()
+        
+        # Check for first run
+        self._check_first_run()
     
     def _init_ui(self):
         """Initialize the UI components."""
@@ -143,6 +147,13 @@ class MainWindow(QMainWindow):
         # Help menu
         help_menu = self.menuBar().addMenu("&Help")
         
+        # Walkthrough action
+        walkthrough_action = QAction("Show Tutorial", self)
+        walkthrough_action.triggered.connect(self._show_walkthrough)
+        help_menu.addAction(walkthrough_action)
+
+        help_menu.addSeparator()
+
         # About action
         about_action = QAction("About", self)
         about_action.triggered.connect(self._show_about)
@@ -537,6 +548,24 @@ class MainWindow(QMainWindow):
             "for unauthorized viewers and displays an alert when someone "
             "else is looking at your screen."
         )
+    
+    def _show_walkthrough(self):
+        """Show the interactive walkthrough."""
+        walkthrough = WalkthroughDialog(self)
+        walkthrough.walkthrough_finished.connect(self._on_walkthrough_finished)
+        walkthrough.exec_()
+
+    def _on_walkthrough_finished(self):
+        """Handle walkthrough completion."""
+        self.config_manager.set("first_run", False)
+        self.config_manager.set("walkthrough_completed", True)
+        self.config_manager.save_config()
+        
+    def _check_first_run(self):
+        """Check if this is the first run and show walkthrough."""
+        if self.config_manager.get("first_run", True):
+            # Show walkthrough after a short delay to ensure window is ready
+            QTimer.singleShot(500, self._show_walkthrough)
     
     def _on_privacy_toggled(self, enabled: bool):
         """
