@@ -1,5 +1,3 @@
-from typing import List, Dict, Any
-
 class WalkthroughStep:
     def __init__(self, 
                  title: str,
@@ -17,7 +15,7 @@ class WalkthroughStep:
 MAIN_WINDOW_STEPS = [
     WalkthroughStep(
         title="Welcome to EyesOff Privacy Monitor",
-        description="EyesOff helps protect your privacy by detecting when someone is looking at your screen. Let's take a quick tour of the main features.",
+        description="EyesOff protects your privacy by detecting when someone is looking at your screen. Let's take a quick tour of the main features.",
         highlight_widget=None,
         position="center"
     ),
@@ -30,24 +28,24 @@ MAIN_WINDOW_STEPS = [
     ),
     WalkthroughStep(
         title="Face Detection Box",
-        description="Green boxes appear around detected faces. The color indicates whether someone is looking at your screen:\n• Green: Not looking at screen\n• Red/Orange: Looking at screen",
+        description="Boxes will appear around detected faces. The color indicates whether someone is looking at your screen:\n• Green: Not looking at screen\n• Red/Orange: Looking at screen",
         highlight_widget="webcam_view.webcam_label",
         position="bottom",
         arrow_direction="up"
     ),
     WalkthroughStep(
         title="Face Counter",
-        description="Shows the number of faces currently detected. When this exceeds your threshold (default: 1), a privacy alert will trigger.",
+        description="Shows the number of faces currently detected and the number of people currently looking at your screen. When this exceeds your threshold (default: 1), a privacy alert will trigger.",
         highlight_widget="webcam_view.webcam_label",
-        position="top-left",
-        arrow_direction="top-left"
+        position="top-right",
+        arrow_direction="top-right"
     ),
     WalkthroughStep(
         title="Gaze Detection Score",
         description="The 'Looking' score (0.00-1.00) indicates how likely someone is looking at your screen. Higher values mean they're more likely looking directly at your display.",
         highlight_widget="webcam_view.webcam_label",
-        position="center",
-        arrow_direction="center"
+        position="right",
+        arrow_direction="left"
     ),
     WalkthroughStep(
         title="Start/Stop Monitoring",
@@ -65,14 +63,14 @@ MAIN_WINDOW_STEPS = [
     ),
     WalkthroughStep(
         title="Status Bar",
-        description="Shows important information:\n• Alert count: Number of privacy alerts triggered\n• Session time: How long monitoring has been active",
+        description="Shows important information:\n• Alerts: Number of privacy alerts triggered\n• Session: How long monitoring has been active",
         highlight_widget="statusBar",
         position="top",
         arrow_direction="down"
     ),
     WalkthroughStep(
         title="You're Ready!",
-        description="That's it! You can access Settings from the Edit menu to customize detection sensitivity, alerts, and more. Start monitoring to protect your privacy!",
+        description="That's it! You can access Settings from the Edit menu to customize detection sensitivity, alerts, and more. Now it's time for EyesOff to start protecting your privacy!",
         highlight_widget=None,
         position="center"
     )
