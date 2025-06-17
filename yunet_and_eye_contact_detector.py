@@ -155,7 +155,7 @@ class GazeDetector:
 			)
 			self.input_name = self.ort_session.get_inputs()[0].name
 
-	def detect(self, frame: np.ndarray) -> Tuple[int, List[Tuple[int, int, int, int]], np.ndarray]:
+	def detect(self, frame: np.ndarray) -> Tuple[int, List[Tuple[int, int, int, int]], np.ndarray, int]:
 		"""Detect faces and determine if they're looking at the screen."""
 		# Increment frame counter
 		self.frame_count += 1
@@ -259,7 +259,10 @@ class GazeDetector:
 		# Create annotated frame with current bboxes and scores
 		annotated_frame = self._visualize_gaze(frame, self.current_bboxes, self.current_scores)
 
-		return len(self.looking_bboxes), self.looking_bboxes, annotated_frame
+		face_count = len(self.current_bboxes)
+		looking_count = len(self.looking_bboxes)
+
+		return face_count, self.looking_bboxes, annotated_frame, looking_count
 
 	def _detect_gaze(self, face_image: Image.Image):
 		"""

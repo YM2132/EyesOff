@@ -28,6 +28,7 @@ class WebcamView(QWidget):
         self.current_frame = None
         self.detection_result = None
         self.num_faces = 0
+        self.num_looking = 0
         self.bboxes = []
         self.fps = 0
         self.face_threshold = 1
@@ -126,8 +127,8 @@ class WebcamView(QWidget):
         if self.detection_result is not None:
             self._update_display()
     
-    @pyqtSlot(int, list, np.ndarray)
-    def update_detection(self, num_faces: int, bboxes: List[Tuple[int, int, int, int]], annotated_frame: np.ndarray):
+    @pyqtSlot(int, list, np.ndarray, int)
+    def update_detection(self, num_faces: int, bboxes: List[Tuple[int, int, int, int]], annotated_frame: np.ndarray, num_looking: int):
         """
         Update detection results.
         
@@ -139,6 +140,7 @@ class WebcamView(QWidget):
         self.num_faces = num_faces
         self.bboxes = bboxes
         self.detection_result = annotated_frame.copy()
+        self.num_looking = num_looking
         
         # Update display if we have a current frame
         if self.current_frame is not None:
@@ -235,13 +237,20 @@ class WebcamView(QWidget):
         font = QFont("Arial", 16, QFont.Bold)
         painter.setFont(font)
         painter.setPen(QPen(face_color))
-        painter.drawText(20, 40, f"Faces: {self.num_faces}")
-        
+        if self.num_faces == 1:
+            painter.drawText(20, 40, f"{self.num_faces} face detected")
+        else:
+            painter.drawText(20, 40, f"{self.num_faces} faces detected")
+
         # FPS counter
-        fps_font = QFont("Arial", 12)
-        painter.setFont(fps_font)
+        looking_font = QFont("Arial", 14)
+        painter.setFont(looking_font)
+        # TODO - Change colour if more than 2 looking too? (maybe looking/num faces should switch as num looking is what we care about)
         painter.setPen(QPen(Qt.white))
-        painter.drawText(20, 70, f"FPS: {self.fps:.1f}")
+        if self.num_looking == 1:
+            painter.drawText(20, 70, f"{self.num_looking} person is looking at your screen")
+        else:
+            painter.drawText(20, 70, f"{self.num_looking} people are looking at your screen")
         
         # Alert indicator
         if self.alert_active:
