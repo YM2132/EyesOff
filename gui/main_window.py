@@ -395,7 +395,7 @@ class MainWindow(QMainWindow):
                 return
             
             # Detect faces
-            num_faces, bboxes, _ = self.face_detector.detect(frame)
+            num_faces, bboxes, _, num_looking = self.face_detector.detect(frame)
             
             # Update detection manager
             self.detection_thread.update_face_count(num_faces)
