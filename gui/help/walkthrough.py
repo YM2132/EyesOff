@@ -1,5 +1,5 @@
 from PyQt5.QtCore import Qt, QRect, QRectF, QPoint, pyqtSignal, QTimer
-from PyQt5.QtGui import QFont, QColor, QPainter, QPainterPath, QBrush
+from PyQt5.QtGui import QFont, QColor, QPainter, QPainterPath, QBrush, QPen
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QWidget, QGraphicsDropShadowEffect)
 
@@ -16,6 +16,12 @@ class WalkthroughDialog(QDialog):
         self.steps = MAIN_WINDOW_STEPS
         self.current_step = 0
         self.highlight_rect = None
+
+        # Colour scheme
+        self.HIGHLIGHT_COLOR = QColor(233, 30, 99)  # Material Pink
+        self.HIGHLIGHT_GLOW = QColor(255, 64, 129)  # Lighter pink for glow
+        self.OVERLAY_COLOR = QColor(0, 0, 0, 150)  # Lighter overlay
+        self.BUBBLE_BORDER = QColor(233, 30, 99)  # Match highlight
         
         # Setup dialog
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
@@ -36,22 +42,15 @@ class WalkthroughDialog(QDialog):
         """Create the help bubble widget."""
         bubble = QWidget(self)
         bubble.setObjectName("helpBubble")
-        bubble.setStyleSheet("""
-            #helpBubble {
+        bubble.setStyleSheet(f"""
+            #helpBubble {{
                 background-color: white;
-                border: 2px solid #64C8FF;
+                border: 3px solid {self.BUBBLE_BORDER.name()};
                 border-radius: 10px;
                 padding: 20px;
-            }
+            }}
         """)
-        
-        # Add shadow effect
-        shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(20)
-        shadow.setColor(QColor(0, 0, 0, 100))
-        shadow.setOffset(0, 5)
-        bubble.setGraphicsEffect(shadow)
-        
+
         # Bubble layout
         layout = QVBoxLayout(bubble)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -72,58 +71,69 @@ class WalkthroughDialog(QDialog):
         
         # Navigation buttons
         nav_layout = QHBoxLayout()
-        
+
         self.skip_button = QPushButton("Skip Tour")
         self.skip_button.setStyleSheet("""
             QPushButton {
-                background-color: #f0f0f0;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-                padding: 6px 12px;
-                font-size: 12px;
+                background-color: rgba(255, 255, 255, 0.9);
+                border: 2px solid #E91E63;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-size: 13px;
+                font-weight: 500;
+                color: #E91E63;
             }
             QPushButton:hover {
-                background-color: #e0e0e0;
+                background-color: #E91E63;
+                color: white;
             }
         """)
         self.skip_button.clicked.connect(self._finish_walkthrough)
         nav_layout.addWidget(self.skip_button)
         
         nav_layout.addStretch()
-        
+
         self.prev_button = QPushButton("Previous")
         self.prev_button.setStyleSheet("""
             QPushButton {
-                background-color: #f0f0f0;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-                padding: 6px 12px;
-                font-size: 12px;
+                background-color: rgba(255, 255, 255, 0.9);
+                border: 2px solid #757575;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-size: 13px;
+                font-weight: 500;
+                color: #424242;
             }
-            QPushButton:hover {
-                background-color: #e0e0e0;
+            QPushButton:hover:enabled {
+                background-color: #F5F5F5;
+                border-color: #E91E63;
+                color: #E91E63;
             }
             QPushButton:disabled {
-                background-color: #f8f8f8;
-                color: #999;
+                background-color: rgba(224, 224, 224, 0.6);
+                color: #BDBDBD;
+                border-color: #E0E0E0;
             }
         """)
         self.prev_button.clicked.connect(self._previous_step)
         nav_layout.addWidget(self.prev_button)
-        
+
         self.next_button = QPushButton("Next")
         self.next_button.setStyleSheet("""
             QPushButton {
-                background-color: #64C8FF;
-                border: 1px solid #4db8ff;
-                border-radius: 4px;
-                padding: 6px 12px;
-                font-size: 12px;
+                background-color: #E91E63;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 20px;
+                font-size: 14px;
                 color: white;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #4db8ff;
+                background-color: #D81B60;
+            }
+            QPushButton:pressed {
+                background-color: #C2185B;
             }
         """)
         self.next_button.clicked.connect(self._next_step)
@@ -229,6 +239,9 @@ class WalkthroughDialog(QDialog):
             elif position == "top-left":
                 x = highlight_rect.left()
                 y = highlight_rect.top() - bubble_height - 20
+            elif position == "top-right":
+                x = highlight_rect.right() - bubble_width
+                y = highlight_rect.top() - bubble_height - 20
             else:  # Default to bottom
                 x = highlight_rect.center().x() - bubble_width // 2
                 y = highlight_rect.bottom() + 20
@@ -264,30 +277,31 @@ class WalkthroughDialog(QDialog):
         
         # Get the full rect of the dialog
         full_rect = self.rect()
-        
-        # Create a dark overlay
-        overlay_color = QColor(0, 0, 0, 180)  # Semi-transparent black
+
+        # First, always fill the entire area with overlay
+        painter.fillRect(full_rect, self.OVERLAY_COLOR)
         
         if self.highlight_rect:
-            # Create a path that covers everything except highlight area
-            path = QPainterPath()
-            path.addRect(QRectF(full_rect))  # Convert QRect to QRectF
-            
-            # Subtract the highlight area with rounded corners
+            # Create a path for the highlight area
             highlight_path = QPainterPath()
-            highlight_path.addRoundedRect(QRectF(self.highlight_rect), 10, 10)  # Convert QRect to QRectF
-            path = path.subtracted(highlight_path)
-            
-            painter.fillPath(path, QBrush(overlay_color))
-            
-            # Draw a subtle border around highlight
-            painter.setPen(QColor(100, 200, 255, 255))
+            highlight_path.addRoundedRect(QRectF(self.highlight_rect), 10, 10)
+
+            # Clear the highlight area (make it transparent)
+            painter.setCompositionMode(QPainter.CompositionMode_Clear)
+            painter.fillPath(highlight_path, QBrush())
+
+            # Reset composition mode for border drawing
+            painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+
+            # Draw border
             painter.setBrush(Qt.NoBrush)
+            painter.setPen(QPen(self.HIGHLIGHT_COLOR, 3))
             painter.drawRoundedRect(self.highlight_rect, 10, 10)
+
         else:
             # Dim entire screen
-            painter.fillRect(full_rect, overlay_color)
-        
+            painter.fillRect(full_rect, self.OVERLAY_COLOR)
+
     def showEvent(self, event):
         """Ensure dialog covers the main window."""
         super().showEvent(event)
