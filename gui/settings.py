@@ -388,45 +388,8 @@ class SettingsPanel(QWidget):
         
         camera_group.setLayout(camera_layout)
         
-        # Resolution group
-        resolution_group = QGroupBox("Resolution")
-        resolution_layout = QFormLayout()
-        
-        # Common resolutions
-        self.resolution_combo = QComboBox()
-        self.resolution_combo.addItems([
-            "640x480 (VGA)", 
-            "1280x720 (HD)", 
-            "1920x1080 (Full HD)",
-            "Custom"
-        ])
-        self.resolution_combo.currentTextChanged.connect(self._on_resolution_changed)
-        resolution_layout.addRow("Preset:", self.resolution_combo)
-        
-        # Custom resolution
-        custom_layout = QHBoxLayout()
-        self.width_spin = QSpinBox()
-        self.width_spin.setRange(320, 3840)
-        self.width_spin.setSingleStep(80)
-        self.width_spin.setEnabled(False)  # Initially disabled
-        
-        self.height_spin = QSpinBox()
-        self.height_spin.setRange(240, 2160)
-        self.height_spin.setSingleStep(60)
-        self.height_spin.setEnabled(False)  # Initially disabled
-        
-        custom_layout.addWidget(QLabel("Width:"))
-        custom_layout.addWidget(self.width_spin)
-        custom_layout.addWidget(QLabel("Height:"))
-        custom_layout.addWidget(self.height_spin)
-        
-        resolution_layout.addRow("Custom:", custom_layout)
-        
-        resolution_group.setLayout(resolution_layout)
-        
         # Add all groups to tab layout
         layout.addWidget(camera_group)
-        layout.addWidget(resolution_group)
         layout.addStretch(1)
         
         tab.setLayout(layout)
@@ -601,23 +564,6 @@ class SettingsPanel(QWidget):
             except:
                 self.camera_combo.setCurrentIndex(0)
 
-            frame_width = self.config_manager.get("frame_width", 640)
-            frame_height = self.config_manager.get("frame_height", 480)
-
-            # Set resolution combo
-            if frame_width == 640 and frame_height == 480:
-                self.resolution_combo.setCurrentText("640x480 (VGA)")
-            elif frame_width == 1280 and frame_height == 720:
-                self.resolution_combo.setCurrentText("1280x720 (HD)")
-            elif frame_width == 1920 and frame_height == 1080:
-                self.resolution_combo.setCurrentText("1920x1080 (Full HD)")
-            else:
-                self.resolution_combo.setCurrentText("Custom")
-                self.width_spin.setEnabled(True)
-                self.height_spin.setEnabled(True)
-                self.width_spin.setValue(frame_width)
-                self.height_spin.setValue(frame_height)
-
             # Add setting for getting the snapshot path
             self.path_edit.setText(self.config_manager.get("snapshot_path", ""))
 
@@ -669,28 +615,6 @@ class SettingsPanel(QWidget):
         if filename:
             self.path_edit.setText(filename)
     
-    def _on_resolution_changed(self, resolution_text: str):
-        """
-        Handle resolution combo change.
-        
-        Args:
-            resolution_text: New resolution text
-        """
-        # Enable/disable custom fields
-        custom_enabled = resolution_text == "Custom"
-        self.width_spin.setEnabled(custom_enabled)
-        self.height_spin.setEnabled(custom_enabled)
-        
-        # Set default values for presets
-        if resolution_text == "640x480 (VGA)":
-            self.width_spin.setValue(640)
-            self.height_spin.setValue(480)
-        elif resolution_text == "1280x720 (HD)":
-            self.width_spin.setValue(1280)
-            self.height_spin.setValue(720)
-        elif resolution_text == "1920x1080 (Full HD)":
-            self.width_spin.setValue(1920)
-            self.height_spin.setValue(1080)
     
     def _on_alert_color_changed(self, color: Tuple[int, int, int]):
         """
@@ -828,20 +752,6 @@ class SettingsPanel(QWidget):
 
         # Camera tab
         settings["camera_id"] = self.camera_combo.currentIndex()
-
-        if self.resolution_combo.currentText() == "Custom":
-            settings["frame_width"] = self.width_spin.value()
-            settings["frame_height"] = self.height_spin.value()
-        else:
-            if self.resolution_combo.currentText() == "640x480 (VGA)":
-                settings["frame_width"] = 640
-                settings["frame_height"] = 480
-            elif self.resolution_combo.currentText() == "1280x720 (HD)":
-                settings["frame_width"] = 1280
-                settings["frame_height"] = 720
-            elif self.resolution_combo.currentText() == "1920x1080 (Full HD)":
-                settings["frame_width"] = 1920
-                settings["frame_height"] = 1080
 
         # App tab
         settings["snapshot_path"] = self.path_edit.text()
