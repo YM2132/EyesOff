@@ -1,12 +1,13 @@
 import os
 import time
+import math
 from typing import List, Tuple, Dict, Any, Optional
 
 import cv2
 import numpy as np
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal, pyqtSlot, QRect, QPoint
-from PyQt5.QtGui import QPixmap, QImage, QPainter, QPen, QBrush, QFont, QColor
-from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QCheckBox, QSizePolicy
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, pyqtSlot, QRect, QPoint, QPropertyAnimation, QEasingCurve
+from PyQt5.QtGui import QPixmap, QImage, QPainter, QPen, QBrush, QFont, QColor, QPainterPath
+from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QCheckBox, QSizePolicy, QGraphicsDropShadowEffect
 
 from utils.display import cv_to_pixmap, apply_privacy_blur, apply_pixelation
 
@@ -30,22 +31,14 @@ class WebcamView(QWidget):
         self.num_faces = 0
         self.num_looking = 0
         self.bboxes = []
-        self.fps = 0
         self.face_threshold = 1
         self.alert_active = False
         self.privacy_mode = False
-        self.frame_count = 0
-        self.last_fps_time = time.time()
         self.is_monitoring = True
         self.scaled_pixmap = None
         
         # Initialize UI
         self._init_ui()
-        
-        # Set up FPS timer
-        self.fps_timer = QTimer(self)
-        self.fps_timer.timeout.connect(self._update_fps)
-        self.fps_timer.start(1000)  # Update FPS every second
 
         # Dir to save snapshots
         self.dir_to_save = None
@@ -60,10 +53,27 @@ class WebcamView(QWidget):
         webcam_container.setStyleSheet("background-color: black;")
         webcam_container_layout = QVBoxLayout(webcam_container)
 
-        # Webcam display label
+        # Webcam display label with modern styling
         self.webcam_label = QLabel()
         self.webcam_label.setAlignment(Qt.AlignCenter)
         self.webcam_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.webcam_label.setScaledContents(False)  # We'll handle scaling manually for quality
+        
+        # Add modern styling with rounded corners and subtle shadow
+        self.webcam_label.setStyleSheet("""
+            QLabel {
+                border-radius: 18px;
+                background-color: black;
+                border: 1px solid rgba(255, 255, 255, 0.08);
+            }
+        """)
+        
+        # Add subtle drop shadow for depth
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(25)
+        shadow.setOffset(0, 5)
+        shadow.setColor(QColor(0, 0, 0, 60))
+        self.webcam_label.setGraphicsEffect(shadow)
 
         # Add "No Camera" text initially
         initial_pixmap = QPixmap(640, 480)
@@ -100,15 +110,6 @@ class WebcamView(QWidget):
 
         self.setLayout(main_layout)
     
-    def _update_fps(self):
-        """Update FPS calculation."""
-        if self.frame_count > 0:
-            current_time = time.time()
-            elapsed = current_time - self.last_fps_time
-            if elapsed > 0:
-                self.fps = self.frame_count / elapsed
-                self.frame_count = 0
-                self.last_fps_time = current_time
     
     @pyqtSlot(np.ndarray)
     def update_frame(self, frame: np.ndarray):
@@ -120,9 +121,6 @@ class WebcamView(QWidget):
         """
         self.last_frame = self.current_frame
         self.current_frame = frame.copy()
-        
-        # Increment frame counter for FPS calculation
-        self.frame_count += 1
         
         if self.detection_result is not None:
             self._update_display()
@@ -189,15 +187,15 @@ class WebcamView(QWidget):
         if self.privacy_mode and self.bboxes:
             display_frame = apply_pixelation(display_frame, self.bboxes)
 
-        # Convert to QPixmap
+        # Convert to QPixmap directly - let Qt handle all scaling
         pixmap = cv_to_pixmap(display_frame)
 
-        # Scale the pixmap to fit the label size while maintaining aspect ratio
+        # Scale the pixmap to fit the label while maintaining aspect ratio
         label_size = self.webcam_label.size()
         self.scaled_pixmap = pixmap.scaled(
             label_size,
             Qt.KeepAspectRatio,
-            Qt.SmoothTransformation
+            Qt.SmoothTransformation  # Always use smooth transformation for quality
         )
 
         # Create custom pixmap with overlays
@@ -220,52 +218,72 @@ class WebcamView(QWidget):
     
     def _draw_info_panel(self, painter: QPainter):
         """Draw the info panel with detection information."""
-        # Prepare background panel
-        panel_width = 250
-        panel_height = 85
-        panel_rect = QRect(10, 10, panel_width, panel_height)
+        # Prepare background panel with modern styling
+        panel_width = 280
+        panel_height = 90
+        panel_margin = 20
+        panel_rect = QRect(panel_margin, panel_margin, panel_width, panel_height)
         
-        # Semi-transparent black background
-        painter.fillRect(panel_rect, QColor(0, 0, 0, 200))
+        # Create glass-morphism effect background
+        # Draw backdrop blur effect background
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QBrush(QColor(255, 255, 255, 10)))  # Very subtle white
+        painter.drawRoundedRect(panel_rect, 12, 12)
         
-        # White border
-        painter.setPen(QPen(Qt.white, 1))
-        painter.drawRect(panel_rect)
+        # Draw main panel with gradient
+        painter.setBrush(QBrush(QColor(0, 0, 0, 160)))  # Semi-transparent black
+        painter.drawRoundedRect(panel_rect, 12, 12)
         
         # Face count text with color based on threshold
-        face_color = QColor(255, 0, 0) if self.num_faces > self.face_threshold else QColor(0, 255, 0)
-        font = QFont("Arial", 16, QFont.Bold)
+        face_color = QColor(255, 75, 75) if self.num_faces > self.face_threshold else QColor(75, 255, 75)
+        font = QFont("Arial", 15, QFont.Bold)
         painter.setFont(font)
         painter.setPen(QPen(face_color))
-        if self.num_faces == 1:
-            painter.drawText(20, 40, f"{self.num_faces} face detected")
-        else:
-            painter.drawText(20, 40, f"{self.num_faces} faces detected")
-
-        # FPS counter
-        looking_font = QFont("Arial", 14)
-        painter.setFont(looking_font)
-        # TODO - Change colour if more than 2 looking too? (maybe looking/num faces should switch as num looking is what we care about)
-        painter.setPen(QPen(Qt.white))
-        if self.num_looking == 1:
-            painter.drawText(20, 70, f"{self.num_looking} person is looking at your screen")
-        else:
-            painter.drawText(20, 70, f"{self.num_looking} people are looking at your screen")
         
-        # Alert indicator
+        text_x = panel_margin + 15
+        if self.num_faces == 1:
+            painter.drawText(text_x, panel_margin + 35, f"{self.num_faces} face detected")
+        else:
+            painter.drawText(text_x, panel_margin + 35, f"{self.num_faces} faces detected")
+
+        # Looking count with modern styling
+        looking_font = QFont("Arial", 13)
+        painter.setFont(looking_font)
+        painter.setPen(QPen(QColor(255, 255, 255, 220)))  # Slightly transparent white
+        
+        if self.num_looking == 1:
+            painter.drawText(text_x, panel_margin + 60, f"{self.num_looking} person is looking at your screen")
+        else:
+            painter.drawText(text_x, panel_margin + 60, f"{self.num_looking} people are looking at your screen")
+        
+        # Alert indicator with modern styling
         if self.alert_active:
-            # Draw a red circle with exclamation mark
-            indicator_x = self.scaled_pixmap.width() - 30
-            indicator_y = 30
+            # Draw a modern alert badge in top right
+            indicator_margin = 20
+            indicator_size = 40
+            indicator_x = self.scaled_pixmap.width() - indicator_margin - indicator_size
+            indicator_y = indicator_margin
             
-            painter.setBrush(QBrush(QColor(255, 0, 0)))
+            # Create pulsing effect with time-based opacity
+            pulse = abs(math.sin(time.time() * 3))  # 3Hz pulse
+            base_opacity = 200
+            pulse_opacity = int(base_opacity + (255 - base_opacity) * pulse)
+            
+            # Draw glow effect
+            glow_rect = QRect(indicator_x - 4, indicator_y - 4, indicator_size + 8, indicator_size + 8)
+            painter.setBrush(QBrush(QColor(255, 59, 48, pulse_opacity // 3)))
             painter.setPen(Qt.NoPen)
-            painter.drawEllipse(QPoint(indicator_x, indicator_y), 15, 15)
+            painter.drawRoundedRect(glow_rect, (indicator_size + 8) // 2, (indicator_size + 8) // 2)
+            
+            # Create rounded rectangle for alert badge
+            alert_rect = QRect(indicator_x, indicator_y, indicator_size, indicator_size)
+            painter.setBrush(QBrush(QColor(255, 59, 48, pulse_opacity)))  # iOS-style red with pulse
+            painter.drawRoundedRect(alert_rect, indicator_size // 2, indicator_size // 2)
             
             # Draw exclamation mark
-            painter.setPen(QPen(Qt.white, 2))
-            painter.setFont(QFont("Arial", 16, QFont.Bold))
-            painter.drawText(indicator_x - 4, indicator_y + 6, "!")
+            painter.setPen(QPen(Qt.white, 3))
+            painter.setFont(QFont("Arial", 22, QFont.Bold))
+            painter.drawText(alert_rect, Qt.AlignCenter, "!")
     
     def set_privacy_mode(self, enabled: bool):
         """
