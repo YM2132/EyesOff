@@ -15,25 +15,24 @@ class WebcamManager(QObject):
     # Signal emitted when an error occurs
     error_occurred = pyqtSignal(str)
     
-    def __init__(self, camera_id: int = 0, frame_width: int = 640, frame_height: int = 480):
+    def __init__(self, camera_id: int = 0):
         """
         Initialize the webcam manager.
         
         Args:
             camera_id: ID of the camera to use
-            frame_width: Width to resize captured frames to
-            frame_height: Height to resize captured frames to
         """
         super().__init__()
         self.camera_id = camera_id
-        self.frame_width = frame_width
-        self.frame_height = frame_height
+        self.frame_width = None
+        self.frame_height = None
         self.cap = None
         self.is_running = False
+        self.available_resolutions = []
     
     def start(self) -> bool:
         """
-        Start the webcam capture.
+        Start the webcam capture at highest available resolution.
         
         Returns:
             bool: True if started successfully, False otherwise
@@ -43,10 +42,30 @@ class WebcamManager(QObject):
             if not self.cap.isOpened():
                 self.error_occurred.emit(f"Cannot open camera with ID {self.camera_id}")
                 return False
+            
+            # Detect available resolutions
+            self._detect_available_resolutions()
+            
+            # Use the highest available resolution
+            if self.available_resolutions:
+                # Get the highest resolution (last in sorted list)
+                best_width, best_height = self.available_resolutions[-1]
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, best_width)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, best_height)
                 
-            # Set capture properties if needed
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.frame_width)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
+                # Verify actual resolution set
+                self.frame_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                self.frame_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                
+                print(f"Camera initialized at highest resolution: {self.frame_width}x{self.frame_height}")
+            else:
+                # Fallback to current resolution if detection failed
+                self.frame_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                self.frame_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                print(f"Using default camera resolution: {self.frame_width}x{self.frame_height}")
+            
+            # Optimize camera settings for better quality
+            self.optimize_camera_settings()
             
             self.is_running = True
             return True
@@ -64,7 +83,7 @@ class WebcamManager(QObject):
     
     def read_frame(self) -> Tuple[bool, Optional[np.ndarray]]:
         """
-        Read a frame from the webcam.
+        Read a frame from the webcam at full resolution.
         
         Returns:
             Tuple containing:
@@ -77,12 +96,8 @@ class WebcamManager(QObject):
         success, frame = self.cap.read()
         if not success:
             return False, None
-            
-        # Resize frame if needed
-        if frame.shape[1] != self.frame_width or frame.shape[0] != self.frame_height:
-            frame = cv2.resize(frame, (self.frame_width, self.frame_height))
         
-        # Emit the frame for GUI components
+        # Always return full resolution frame - let display layer handle scaling
         self.frame_ready.emit(frame)
         
         return True, frame
@@ -111,27 +126,7 @@ class WebcamManager(QObject):
             return self.start()
         return True
     
-    def set_resolution(self, width: int, height: int) -> bool:
-        """
-        Set the capture resolution.
-        
-        Args:
-            width: Frame width
-            height: Frame height
-            
-        Returns:
-            bool: True if resolution changed successfully
-        """
-        self.frame_width = width
-        self.frame_height = height
-        
-        if self.cap and self.cap.isOpened():
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-            return True
-        return False
 
-    # TODO - MAke use of an actual apple API to check for permissions before we kick off the app. This is a crutch approach which will not holdup, we should wait until user grants access before we start the app. If the user does not grant access we should show them a message
     @staticmethod
     def get_device_list(max_retries=5, retry_delay=1.0) -> list:
         """
@@ -171,3 +166,86 @@ class WebcamManager(QObject):
         # If we get here, we've exhausted all retries
         print("Failed to find any camera devices after maximum retries")
         return available_cameras  # Will be empty
+    
+    def _detect_available_resolutions(self):
+        """Detect resolutions supported by the current camera."""
+        if not self.cap or not self.cap.isOpened():
+            return
+        
+        # Key resolutions to test (simplified list for speed)
+        test_resolutions = [
+            (3840, 2160),   # 4K
+            (2560, 1440),   # QHD
+            (1920, 1080),   # Full HD
+            (1280, 720),    # HD
+            (640, 480),     # VGA (fallback)
+        ]
+        
+        self.available_resolutions = []
+        original_width = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+        original_height = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        
+        # Add current resolution first
+        current_res = (int(original_width), int(original_height))
+        if current_res not in test_resolutions:
+            test_resolutions.insert(0, current_res)
+        
+        for width, height in test_resolutions:
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+            
+            actual_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            actual_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            
+            if actual_width == width and actual_height == height:
+                if (width, height) not in self.available_resolutions:
+                    self.available_resolutions.append((width, height))
+        
+        # Sort by total pixels (width * height)
+        self.available_resolutions.sort(key=lambda r: r[0] * r[1])
+        
+        print(f"Available resolutions: {self.available_resolutions}")
+    
+    
+    def optimize_camera_settings(self):
+        """Optimize camera settings for better quality - FaceTime style."""
+        if not self.cap or not self.cap.isOpened():
+            return
+        
+        try:
+            # Try to set camera properties for better quality
+            # Note: Not all cameras support all properties
+            
+            # Set higher FPS if supported (60 fps for smooth video if available)
+            self.cap.set(cv2.CAP_PROP_FPS, 60)
+            actual_fps = self.cap.get(cv2.CAP_PROP_FPS)
+            if actual_fps < 60:
+                self.cap.set(cv2.CAP_PROP_FPS, 30)
+            
+            # Enable auto-exposure for better lighting adaptation
+            self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)  # 3 = auto mode
+            
+            # Set buffer size to 1 for minimal latency (real-time feel)
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            
+            # Disable auto white balance and set it manually for consistency
+            self.cap.set(cv2.CAP_PROP_AUTO_WB, 1)  # Enable auto white balance
+            
+            # Try to improve image quality settings
+            # These may not work on all cameras but won't cause errors
+            self.cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.5)  # Default brightness
+            self.cap.set(cv2.CAP_PROP_CONTRAST, 0.5)    # Default contrast
+            self.cap.set(cv2.CAP_PROP_SATURATION, 0.65) # Slightly enhanced saturation
+            self.cap.set(cv2.CAP_PROP_SHARPNESS, 0.7)   # Slight sharpness boost
+            self.cap.set(cv2.CAP_PROP_GAIN, 0.5)        # Moderate gain
+            
+            # Try to set codec to MJPEG for better quality (if supported)
+            fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+            self.cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+            
+            # Set auto-focus if available
+            self.cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)
+            
+            print("Camera settings optimized for FaceTime-like quality")
+        except Exception as e:
+            print(f"Note: Some camera optimizations may not be supported: {e}")
