@@ -77,10 +77,10 @@ class MainWindow(QMainWindow):
         # Set window properties
         self.setWindowTitle("EyesOff Privacy Monitor")
 
-        # Disable full-screen capability
-        self.setWindowFlags((self.windowFlags() & ~Qt.WindowFullscreenButtonHint & ~Qt.WindowMaximizeButtonHint) | Qt.CustomizeWindowHint)
+        # Enable maximize and fullscreen capabilities for better webcam display
+        self.setWindowFlags(self.windowFlags() | Qt.WindowFullscreenButtonHint | Qt.WindowMaximizeButtonHint)
 
-        self.setMinimumSize(1000, 800)
+        self.setMinimumSize(640, 480)  # More flexible minimum size for any screen
         
         # Create central widget
         central_widget = QWidget()
@@ -229,11 +229,9 @@ class MainWindow(QMainWindow):
     def _init_components(self):
         """Initialize the core components."""
         try:
-            # Create webcam manager - We get the frame_width and height from settings
+            # Create webcam manager - simplified, no resolution parameters
             self.webcam_manager = WebcamManager(
-                camera_id=self.config_manager.get("camera_id", 0),
-                frame_width=self.config_manager.get("frame_width", 640),
-                frame_height=self.config_manager.get("frame_height", 480)
+                camera_id=self.config_manager.get("camera_id", 0)
             )
             
             # Connect signals
@@ -313,6 +311,7 @@ class MainWindow(QMainWindow):
             if not self.webcam_manager.start():
                 self._show_error_message("Failed to start webcam")
                 return
+            
             
             # Start detection thread
             self.detection_thread.start()  # .start() is an inherited method from the QThread class, it calls the run function in a Qthread
@@ -416,10 +415,6 @@ class MainWindow(QMainWindow):
                 # Check if camera changed
                 if 'camera_id' in settings:
                     self.webcam_manager.set_camera(settings['camera_id'])
-                
-                # Check if resolution changed
-                if 'frame_width' in settings and 'frame_height' in settings:
-                    self.webcam_manager.set_resolution(settings['frame_width'], settings['frame_height'])
             
             # Update detector settings
             if self.face_detector:
@@ -713,16 +708,21 @@ class MainWindow(QMainWindow):
         Args:
             stats: Dictionary of detection statistics
         """
-        # Update status bar with simplified statistics summary
+        # Update status bar with simplified statistics
+        status_parts = []
+        
+        # Alert count
         if 'alert_count' in stats:
-            elapsed_time = 0
-            if stats.get('session_start_time'):
-                elapsed_time = time.time() - stats['session_start_time']
-                
-            status = f"Alerts: {stats['alert_count']} | " \
-                     f"Session: {int(elapsed_time / 60)}m {int(elapsed_time % 60)}s"
-                     
-            self.statusBar.showMessage(status)
+            status_parts.append(f"Alerts: {stats['alert_count']}")
+        
+        # Session time
+        if stats.get('session_start_time'):
+            elapsed_time = time.time() - stats['session_start_time']
+            status_parts.append(f"Session: {int(elapsed_time / 60)}m {int(elapsed_time % 60)}s")
+        
+        # Join all parts
+        if status_parts:
+            self.statusBar.showMessage(" | ".join(status_parts))
     
     def _show_error_message(self, message: str):
         """
@@ -818,50 +818,9 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(100, self._resize_webcam_view)
 
     def _resize_webcam_view(self):
-        """Resize the webcam view to fit the available space in the splitter."""
-        if not self.webcam_view or not self.webcam_manager:
-            return
-
-        # Get the current size of the webcam view's container in the splitter
-        container_width = self.webcam_view.width()
-        container_height = self.webcam_view.height()
-
-        # Get the current display resolution
-        display_width = self.webcam_manager.frame_width
-        display_height = self.webcam_manager.frame_height
-
-        # Calculate aspect ratio of the webcam feed
-        aspect_ratio = display_width / display_height
-
-        # Set maximum dimensions to prevent excessive growth
-        max_width = min(1600, container_width - 40)  # Max 1600px or container width - 40px
-        max_height = min(900, container_height - 40)  # Max 900px or container height - 40px
-
-        # Set a fixed size for the webcam label that maintains aspect ratio
-        # and fits within the container and maximum limits
-        if container_width / container_height > aspect_ratio:
-            # Container is wider than needed - height is the limiting factor
-            new_height = min(max_height, container_height - 40)  # Account for padding/margins
-            new_width = int(new_height * aspect_ratio)
-
-            # Check if width exceeds max_width
-            if new_width > max_width:
-                new_width = max_width
-                new_height = int(new_width / aspect_ratio)
-        else:
-            # Container is taller than needed - width is the limiting factor
-            new_width = min(max_width, container_width - 40)  # Account for padding/margins
-            new_height = int(new_width / aspect_ratio)
-
-            # Check if height exceeds max_height
-            if new_height > max_height:
-                new_height = max_height
-                new_width = int(new_height * aspect_ratio)
-
-        # Update the webcam view's label size
-        self.webcam_view.webcam_label.setFixedSize(new_width, new_height)
-
-        print(f"Resized webcam view to {new_width}x{new_height} (container: {container_width}x{container_height})")
+        """Resize the webcam view to fit the available space."""
+        # Remove this method entirely - let the webcam view handle its own sizing dynamically
+        pass
 
     # Update View
     def _show_update_dialog(self, new_version):
