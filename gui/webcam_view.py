@@ -1,15 +1,15 @@
 import os
 import time
-import math
 from typing import List, Tuple, Dict, Any, Optional
 
 import cv2
 import numpy as np
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal, pyqtSlot, QRect, QPoint, QPropertyAnimation, QEasingCurve
-from PyQt5.QtGui import QPixmap, QImage, QPainter, QPen, QBrush, QFont, QColor, QPainterPath
-from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QCheckBox, QSizePolicy, QGraphicsDropShadowEffect
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QSizePolicy
 
 from utils.display import cv_to_pixmap, apply_privacy_blur, apply_pixelation
+from gui.webcam_info_panel import WebcamInfoPanel
 
 
 class WebcamView(QWidget):
@@ -42,6 +42,10 @@ class WebcamView(QWidget):
 
         # Dir to save snapshots
         self.dir_to_save = None
+        
+        # Create info panel widget
+        self.info_panel = WebcamInfoPanel(self)
+        self.info_panel.show()
 
     def _init_ui(self):
         """Initialize the UI components"""
@@ -123,10 +127,7 @@ class WebcamView(QWidget):
             is_active: Whether an alert is currently active
         """
         self.alert_active = is_active
-
-        # Update display if we have current detection results
-        if self.detection_result is not None:
-            self._update_display()
+        self.info_panel.set_alert_active(is_active)
 
     def update_settings(self, settings: Dict[str, Any]):
         """
@@ -168,92 +169,16 @@ class WebcamView(QWidget):
             Qt.FastTransformation  # Always use smooth transformation for quality
         )
 
-        # Create custom pixmap with overlays
-        self._draw_overlays()
+        # Update info panel instead of drawing overlays
+        self.info_panel.update_detection_info(
+            self.num_faces, 
+            self.num_looking, 
+            self.face_threshold
+        )
+        
+        # Set the pixmap directly without overlays
+        self.webcam_label.setPixmap(self.scaled_pixmap)
 
-    def _draw_overlays(self):
-        """Draw UI overlays using PyQt."""
-        # Create a new pixmap to draw on
-        final_pixmap = self.scaled_pixmap.copy()
-        painter = QPainter(final_pixmap)
-        painter.setRenderHint(QPainter.Antialiasing)
-
-        # Draw info panel
-        self._draw_info_panel(painter)
-
-        painter.end()
-
-        # Set the final pixmap
-        self.webcam_label.setPixmap(final_pixmap)
-
-    def _draw_info_panel(self, painter: QPainter):
-        """Draw the info panel with detection information."""
-        # Prepare background panel with modern styling
-        panel_width = 280
-        panel_height = 90
-        panel_margin = 20
-        panel_rect = QRect(panel_margin, panel_margin, panel_width, panel_height)
-
-        # Create glass-morphism effect background
-        # Draw backdrop blur effect background
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(QBrush(QColor(255, 255, 255, 10)))  # Very subtle white
-        painter.drawRoundedRect(panel_rect, 12, 12)
-
-        # Draw main panel with gradient
-        painter.setBrush(QBrush(QColor(0, 0, 0, 160)))  # Semi-transparent black
-        painter.drawRoundedRect(panel_rect, 12, 12)
-
-        # Face count text with color based on threshold
-        face_color = QColor(255, 75, 75) if self.num_faces > self.face_threshold else QColor(75, 255, 75)
-        font = QFont("Arial", 15, QFont.Bold)
-        painter.setFont(font)
-        painter.setPen(QPen(face_color))
-
-        text_x = panel_margin + 15
-        if self.num_faces == 1:
-            painter.drawText(text_x, panel_margin + 35, f"{self.num_faces} face detected")
-        else:
-            painter.drawText(text_x, panel_margin + 35, f"{self.num_faces} faces detected")
-
-        # Looking count with modern styling
-        looking_font = QFont("Arial", 13)
-        painter.setFont(looking_font)
-        painter.setPen(QPen(QColor(255, 255, 255, 220)))  # Slightly transparent white
-
-        if self.num_looking == 1:
-            painter.drawText(text_x, panel_margin + 60, f"{self.num_looking} person is looking at your screen")
-        else:
-            painter.drawText(text_x, panel_margin + 60, f"{self.num_looking} people are looking at your screen")
-
-        # Alert indicator with modern styling
-        if self.alert_active:
-            # Draw a modern alert badge in top right
-            indicator_margin = 20
-            indicator_size = 40
-            indicator_x = self.scaled_pixmap.width() - indicator_margin - indicator_size
-            indicator_y = indicator_margin
-
-            # Create pulsing effect with time-based opacity
-            pulse = abs(math.sin(time.time() * 3))  # 3Hz pulse
-            base_opacity = 200
-            pulse_opacity = int(base_opacity + (255 - base_opacity) * pulse)
-
-            # Draw glow effect
-            glow_rect = QRect(indicator_x - 4, indicator_y - 4, indicator_size + 8, indicator_size + 8)
-            painter.setBrush(QBrush(QColor(255, 59, 48, pulse_opacity // 3)))
-            painter.setPen(Qt.NoPen)
-            painter.drawRoundedRect(glow_rect, (indicator_size + 8) // 2, (indicator_size + 8) // 2)
-
-            # Create rounded rectangle for alert badge
-            alert_rect = QRect(indicator_x, indicator_y, indicator_size, indicator_size)
-            painter.setBrush(QBrush(QColor(255, 59, 48, pulse_opacity)))  # iOS-style red with pulse
-            painter.drawRoundedRect(alert_rect, indicator_size // 2, indicator_size // 2)
-
-            # Draw exclamation mark
-            painter.setPen(QPen(Qt.white, 3))
-            painter.setFont(QFont("Arial", 22, QFont.Bold))
-            painter.drawText(alert_rect, Qt.AlignCenter, "!")
 
     def set_privacy_mode(self, enabled: bool):
         """
@@ -333,5 +258,11 @@ class WebcamView(QWidget):
     def resizeEvent(self, event):
         """Handle resize events to adjust the display."""
         super().resizeEvent(event)
+        
+        # Reposition alert indicator if it's active
+        if hasattr(self, 'info_panel') and self.info_panel.alert_active:
+            self.info_panel.set_alert_active(True)
+            
+        # Update display if we have detection results
         if hasattr(self, 'detection_result') and self.detection_result is not None:
             self._update_display()
