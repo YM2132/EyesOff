@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QSizePolicy
 
-from utils.display import cv_to_pixmap, apply_privacy_blur, apply_pixelation
+from utils.display import cv_to_pixmap, apply_pixelation
 from gui.webcam_info_panel import WebcamInfoPanel
 
 
