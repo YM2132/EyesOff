@@ -115,6 +115,9 @@ class WebcamInfoPanel(QWidget):
         
         # UI Setup
         self._init_ui()
+
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
         self._apply_styling()
         
         # Position and size
@@ -228,32 +231,16 @@ class WebcamInfoPanel(QWidget):
             self.alert_indicator.stop_pulsing()
             
     def mousePressEvent(self, event):
-        """Handle mouse press for dragging and clicking."""
+        """Emit the clicked signal but do *not* start a drag."""
         if event.button() == Qt.LeftButton:
-            self._drag_position = event.globalPos() - self.frameGeometry().topLeft()
-            self.clicked.emit()
-            event.accept()
-            
+            self.clicked.emit()          # keep the click behaviour
+            event.accept()               # swallow the event
+        else:
+            super().mousePressEvent(event)
+
     def mouseMoveEvent(self, event):
-        """Handle dragging."""
-        if event.buttons() == Qt.LeftButton and self._drag_position and self.parent():
-            # Calculate new position
-            new_pos = event.globalPos() - self._drag_position
-            
-            # Get parent position in global coordinates
-            parent_global = self.parent().mapToGlobal(self.parent().rect().topLeft())
-            
-            # Calculate position relative to parent
-            relative_x = new_pos.x() - parent_global.x()
-            relative_y = new_pos.y() - parent_global.y()
-            
-            # Constrain to parent bounds
-            parent_rect = self.parent().rect()
-            new_x = max(0, min(relative_x, parent_rect.width() - self.width()))
-            new_y = max(0, min(relative_y, parent_rect.height() - self.height()))
-            
-            self.move(new_x, new_y)
-            event.accept()
+        """Ignore mouse moves so the widget never re-positions."""
+        event.ignore()
             
     def mouseReleaseEvent(self, event):
         """Handle mouse release."""
