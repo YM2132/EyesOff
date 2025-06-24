@@ -1,6 +1,9 @@
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List, Dict, Union
 
 import cv2
+import platform
+import subprocess
+import json
 import numpy as np
 from PyQt5.QtCore import QObject, pyqtSignal
 
@@ -125,29 +128,54 @@ class WebcamManager(QObject):
         if was_running:
             return self.start()
         return True
-    
 
     @staticmethod
-    def get_device_list(max_retries=5, retry_delay=1.0) -> list:
+    def get_device_list(max_retries=5, retry_delay=1.0, return_names=False) -> Union[List[int], List[Dict[str, any]]]:
         """
-        Get a list of available camera devices with retry mechanism.
+		Get a list of available camera devices with retry mechanism.
 
-        Args:
-            max_retries: Maximum number of retries if no cameras are found
-            retry_delay: Delay between retries in seconds
+		Args:
+			max_retries: Maximum number of retries if no cameras are found
+			retry_delay: Delay between retries in seconds
+			return_names: If True, returns list of dicts with 'id' and 'name'. If False, returns list of IDs only (backward compatible)
 
-        Returns:
-            list: List of available camera device IDs
-        """
+		Returns:
+			list: List of available camera device IDs (if return_names=False) or list of dicts with camera info (if return_names=True)
+		"""
         retry_count = 0
         available_cameras = []
 
         while retry_count <= max_retries:
+            available_cameras = []
+
+            # Get camera names if on macOS
+            camera_names = WebcamManager._get_camera_names() if return_names else {}
+
             # Check the first 10 camera indices
             for i in range(10):
                 cap = cv2.VideoCapture(i)
                 if cap.isOpened():
-                    available_cameras.append(i)
+                    if return_names:
+                        # Get camera info
+                        name = camera_names.get(i, f"Camera {i}")
+
+                        # Try to get additional info from OpenCV
+                        backend = cap.getBackendName()
+                        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+                        camera_info = {
+                            'id': i,
+                            'name': name,
+                            'backend': backend,
+                            'resolution': f"{width}x{height}" if width > 0 and height > 0 else "Unknown"
+                        }
+                        print(camera_info)
+                        available_cameras.append(camera_info)
+                    else:
+                        # Backward compatible: just return ID
+                        available_cameras.append(i)
+
                     cap.release()
 
             # If we found cameras, return the list
@@ -166,6 +194,72 @@ class WebcamManager(QObject):
         # If we get here, we've exhausted all retries
         print("Failed to find any camera devices after maximum retries")
         return available_cameras  # Will be empty
+
+    @staticmethod
+    def _get_camera_names() -> Dict[int, str]:
+        """
+		Get camera names for each index (macOS specific for now).
+
+		Returns:
+			Dict mapping camera index to camera name
+		"""
+        camera_names = {}
+        system = platform.system()
+
+        if system == "Darwin":  # macOS
+            try:
+                # Use system_profiler to get camera info
+                result = subprocess.run(
+                    ['system_profiler', 'SPCameraDataType', '-json'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+
+                if result.returncode == 0:
+                    data = json.loads(result.stdout)
+
+                    # Parse the camera data
+                    if 'SPCameraDataType' in data:
+                        for idx, camera in enumerate(data['SPCameraDataType']):
+                            name = camera.get('_name', f'Camera {idx}')
+                            # Map to OpenCV index (may need adjustment based on your system)
+                            camera_names[idx] = name
+            except Exception as e:
+                print(f"Error getting macOS camera names: {e}")
+
+        elif system == "Windows":
+            # Add Windows support if needed
+            pass
+
+        elif system == "Linux":
+            # Add Linux support if needed
+            pass
+
+        return camera_names
+
+    @staticmethod
+    def get_camera_display_name(camera_id: int) -> str:
+        """
+		Get display name for a specific camera.
+
+		Args:
+			camera_id: Camera index
+
+		Returns:
+			str: Display name for the camera
+		"""
+        cameras_with_names = WebcamManager.get_device_list(return_names=True)
+
+        for camera_info in cameras_with_names:
+            if camera_info['id'] == camera_id:
+                name = camera_info['name']
+                resolution = camera_info.get('resolution', '')
+                if resolution and resolution != 'Unknown':
+                    return f"{name} ({resolution})"
+                return name
+
+        return f"Camera {camera_id}"
     
     def _detect_available_resolutions(self):
         """Detect resolutions supported by the current camera."""

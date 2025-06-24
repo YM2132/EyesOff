@@ -223,7 +223,7 @@ class SettingsPanel(QWidget):
 
         # Auto-dismiss
         self.auto_dismiss_check = QCheckBox()
-        behaviour_layout.addRow("Close alert automatically?", self.auto_dismiss_check)
+        behaviour_layout.addRow("Close alert automatically ?", self.auto_dismiss_check)
 
         behaviour_group.setLayout(behaviour_layout)
 
@@ -361,7 +361,9 @@ class SettingsPanel(QWidget):
         self.camera_combo = QComboBox()
         # Get available cameras
         for cam_idx in self.available_cameras:
-            self.camera_combo.addItems([f"Camera {cam_idx}"])
+            # self.camera_combo.addItems([f"Camera {cam_idx}"])
+            display_name = WebcamManager.get_camera_display_name(cam_idx)
+            self.camera_combo.addItem(display_name, cam_idx)
         camera_layout.addRow("Camera Device:", self.camera_combo)
         
         camera_group.setLayout(camera_layout)
