@@ -287,32 +287,10 @@ class SettingsPanel(QWidget):
         self.alert_color_button.color_changed.connect(self._on_alert_color_changed)
         screen_alert_layout.addRow("Alert Color:", self.alert_color_button)
 
-        # Opacity
-        self.alert_opacity_spin = QSpinBox()
-        self.alert_opacity_spin.setRange(10, 100)
-        self.alert_opacity_spin.setSuffix("%")
-        screen_alert_layout.addRow("Opacity:", self.alert_opacity_spin)
-
-        # Animation effects
-        self.animations_check = QCheckBox()
-        screen_alert_layout.addRow("Animation Effects:", self.animations_check)
-
         # Fullscreen mode
         self.fullscreen_check = QCheckBox()
         self.fullscreen_check.setToolTip("Display alert in fullscreen mode (covers entire screen)")
         screen_alert_layout.addRow("Fullscreen Mode:", self.fullscreen_check)
-
-        # Width
-        self.alert_width_spin = QSpinBox()
-        self.alert_width_spin.setRange(200, 1200)
-        self.alert_width_spin.setSingleStep(50)
-        screen_alert_layout.addRow("Width:", self.alert_width_spin)
-
-        # Height
-        self.alert_height_spin = QSpinBox()
-        self.alert_height_spin.setRange(100, 800)
-        self.alert_height_spin.setSingleStep(50)
-        screen_alert_layout.addRow("Height:", self.alert_height_spin)
 
         self.screen_alert_group.setLayout(screen_alert_layout)
 
@@ -479,7 +457,29 @@ class SettingsPanel(QWidget):
         self.detection_delay_spin.setToolTip("Time to confirm detection before showing alert")
         threshold_layout.addRow("Detection Delay (s):", self.detection_delay_spin)
 
+        self.alert_opacity_spin = QSpinBox()
+        self.alert_opacity_spin.setRange(10, 100)
+        self.alert_opacity_spin.setSuffix("%")
+        threshold_layout.addRow("Opacity:", self.alert_opacity_spin)
+
+        # Animation effects
+        self.animations_check = QCheckBox()
+        threshold_layout.addRow("Animation Effects:", self.animations_check)
+
+        # Width
+        self.alert_width_spin = QSpinBox()
+        self.alert_width_spin.setRange(200, 1200)
+        self.alert_width_spin.setSingleStep(50)
+        threshold_layout.addRow("Width:", self.alert_width_spin)
+
+        # Height
+        self.alert_height_spin = QSpinBox()
+        self.alert_height_spin.setRange(100, 800)
+        self.alert_height_spin.setSingleStep(50)
+        threshold_layout.addRow("Height:", self.alert_height_spin)
+
         threshold_group.setLayout(threshold_layout)
+
 
         # Add all groups to tab layout
         layout.addWidget(advanced_detection_group)
