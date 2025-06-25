@@ -343,7 +343,7 @@ class GazeDetector:
 				cv2.rectangle(annotated_image, start_point, end_point, box_color, 3)
 
 				# Add text with gaze score (same format as YuNet)
-				gaze_text = f"Looking: {score:.2f}"
+				gaze_text = "Looking" if score >= self.gaze_threshold else "Not looking"
 				# Place the text at the top of the box (like YuNet)
 				text_location = (MARGIN + x, MARGIN + ROW_SIZE + y)
 				cv2.putText(annotated_image, gaze_text, text_location,
