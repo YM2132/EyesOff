@@ -337,6 +337,8 @@ class MainWindow(QMainWindow):
             if self.tray_icon:
                 self.tray_icon.setToolTip("EyesOff - Monitoring Active")
 
+            self.webcam_view.info_panel.show()
+
         except Exception as e:
             self._show_error_message(f"Error starting monitoring: {e}")
 
@@ -382,6 +384,9 @@ class MainWindow(QMainWindow):
             # Update tray icon tooltip
             if self.tray_icon:
                 self.tray_icon.setToolTip("EyesOff - Monitoring Stopped")
+
+            if self.webcam_view.info_panel:
+                self.webcam_view.info_panel.hide()
 
         except Exception as e:
             self._show_error_message(f"Error stopping monitoring: {e}")
