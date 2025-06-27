@@ -7,7 +7,7 @@ from PyQt5.QtCore import Qt, QTimer, QSettings, pyqtSlot
 from PyQt5.QtGui import QIcon, QCloseEvent, QKeySequence
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 							 QSplitter, QAction, QMenu, QStatusBar, QMessageBox,
-							 QSystemTrayIcon, QStyle, QApplication)
+							 QSystemTrayIcon, QStyle, QApplication, QProgressDialog)
 
 from core.detector import FaceDetector
 from core.manager import DetectionManagerThread
@@ -17,7 +17,6 @@ from gui.alert import AlertDialog
 from gui.help.walkthrough import WalkthroughDialog
 from gui.preferences_window import PreferencesWindow
 from gui.webcam_view import WebcamView
-from gui.update_view import UpdateView
 from gui.help.walkthrough import WalkthroughDialog
 from utils.config import ConfigManager
 from utils.platform import get_platform_manager
@@ -268,7 +267,9 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(3000, self.update_manager.start)
 
             # Connect update signals
-            self.update_manager.thread.update_available.connect(self._show_update_dialog)
+            self.update_manager.thread.update_available.connect(self._prompt_update)
+            self.update_manager.thread.download_progress.connect(self._update_download_progress)
+            self.update_manager.thread.download_completed.connect(self._download_completed)
 
             # Create frame processing timer
             self.frame_timer = QTimer(self)
@@ -829,39 +830,66 @@ class MainWindow(QMainWindow):
         pass
 
     # Update View
-    def _show_update_dialog(self, new_version):
-        """Show update dialog when a new version is available."""
+    def _prompt_update(self, new_version):
+        """Show simple update prompt."""
         current_version = self.config_manager.get("app_version", "1.0.0")
 
-        # Create the update view with version information
-        self.update_view = UpdateView(self.update_manager, self, version_info=new_version)
+        reply = QMessageBox.question(
+            self,
+            "EyesOff Update",
+            f"EyesOff {new_version} is available (current: {current_version}).\n\nInstall now?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
 
-        # Connect to update signals
-        self.update_view.update_accepted.connect(self._handle_update_accepted)
-        self.update_view.update_declined.connect(self._handle_update_declined)
+        if reply == QMessageBox.Yes:
+            self.download_progress = QProgressDialog(
+                "Downloading update...",
+                "Cancel",
+                0,
+                100,
+                self
+            )
+            self.download_progress.setWindowTitle("Downloading Update")
+            self.download_progress.setWindowModality(Qt.WindowModal)
+            self.download_progress.setAutoClose(False)
+            self.download_progress.setAutoReset(False)
+            self.download_progress.setMinimumDuration(0)
+            self.download_progress.show()
 
-        # Connect download progress signals
-        self.update_manager.thread.download_progress.connect(self.update_view.update_progress)
-        self.update_manager.thread.download_completed.connect(self.update_view.download_complete)
+            self.download_progress.canceled.connect(self._cancel_download)
+            self.update_manager.thread.start_download.emit()
+        else:
+            self.statusBar.showMessage("Update declined", 3000)
+            print("Update declined by user")
 
-        # Connect verification signals
-        self.update_manager.thread.verification_started.connect(self.update_view.show_verification_started)
-        self.update_manager.thread.verification_success.connect(self.update_view.show_verification_success)
-        self.update_manager.thread.verification_failed.connect(self.update_view.show_verification_failed)
+    def _update_download_progress(self, progress):
+        """Update the progress dialog."""
+        if hasattr(self, 'download_progress') and self.download_progress:
+            self.download_progress.setValue(progress)
 
-        # Show the dialog
-        self.update_view.exec_()
+    def _download_completed(self, file_path):
+        """Handle download completion."""
+        if hasattr(self, 'download_progress') and self.download_progress:
+            self.download_progress.close()
+            self.download_progress = None
 
-    def _handle_update_accepted(self):
-        """Handle when user accepts the update."""
+        QMessageBox.information(
+            self,
+            "Download Complete",
+            "The installer has opened. Please follow the macOS prompts to complete installation.",
+            QMessageBox.Ok
+        )
 
-        self.update_manager.thread.start_download.emit()
+        self.statusBar.showMessage("Update downloaded - installer opened", 5000)
 
-        print('HANDLING UPDATE ACCEPTED BY USER')
+    def _cancel_download(self):
+        """Handle download cancellation."""
+        if self.update_manager:
+            self.update_manager._shutdown()
 
-    def _handle_update_declined(self):
-        """Handle when user declines the update."""
-        # Just log to status bar
-        self.statusBar.showMessage("Update declined", 3000)
-        self.update_manager.close_thread()
-        print('HANDLING UPDATE DECLINE- CLOSING THREAD')
+        if hasattr(self, 'download_progress') and self.download_progress:
+            self.download_progress.close()
+            self.download_progress = None
+
+        self.statusBar.showMessage("Update cancelled", 3000)
