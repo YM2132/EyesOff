@@ -1,0 +1,25 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>EyesOff</title>
+        <item>
+            <title>2.0.0</title>
+            <pubDate>Sun, 06 Jul 2025 19:46:42 +0100</pubDate>
+            <sparkle:version>2.0.0</sparkle:version>
+            <sparkle:shortVersionString>2.0.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+            <enclosure url="http://localhost:3000/EyesOff-2.0.0.zip" length="196115641" type="application/octet-stream" sparkle:edSignature="qA9O99R7Jv2NcYyUXSCbAljsOLd1BXY1piS77CvK8L3pWbyaHiM+H5q266/6wF+bQ8uOkOQ/ViuQYQgaUlFXCg=="/>
+            <sparkle:deltas>
+                <enclosure url="http://localhost:3000/EyesOff2.0.0-1.1.0.delta" sparkle:deltaFrom="1.1.0" length="591402" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="865520" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,en" sparkle:edSignature="/ZoCkvRLT2iaHK6th7lHeLBhYR8c5vPQZDWjgZfuQOp45aTKC+RI6XkmQFbXnCf5LFvyo+0WPiGO7/SG4OyTAQ=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
+            <title>1.1.0</title>
+            <pubDate>Sun, 06 Jul 2025 12:45:04 +0100</pubDate>
+            <sparkle:version>1.1.0</sparkle:version>
+            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+            <enclosure url="http://localhost:3000/EyesOff-1.1.0.zip" length="196116594" type="application/octet-stream" sparkle:edSignature="l1VCgwQMnS5iKoHGWYKZqWbhn5bvrfoDjuNOEXWY5TtuB4YkkKR37G4vYMgkj7AdLVPP0M6QoGlv+8Pb+4wHCA=="/>
+        </item>
+    </channel>
+</rss>
