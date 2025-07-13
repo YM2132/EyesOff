@@ -1,6 +1,7 @@
 // LaunchPad.m - Simplified with proper Sparkle behavior
 #import <Cocoa/Cocoa.h>
 #import <Sparkle/SPUStandardUpdaterController.h>
+#import <Sparkle/SPUUpdater.h>
 
 @interface LauncherDelegate : NSObject <NSApplicationDelegate>
 @property (strong) SPUStandardUpdaterController *updaterController;
@@ -18,8 +19,14 @@
             userDriverDelegate:nil];
         NSLog(@"LaunchPad: Sparkle initialized successfully");
 
-        // DON'T call checkForUpdates here - let Sparkle handle it automatically
-        // based on SUScheduledCheckInterval in Info.plist
+        // Listen for update check requests from Python
+        [[NSDistributedNotificationCenter defaultCenter]
+		    addObserver:self
+		    selector:@selector(checkForUpdatesManually)
+		    name:@"app.eyesoff.checkForUpdatesManually"
+		    object:nil
+		    suspensionBehavior:NSNotificationSuspensionBehaviorDeliverImmediately];
+		NSLog(@"LaunchPad: Listening for updates notification");
 
     } @catch (NSException *exception) {
         NSLog(@"LaunchPad: Failed to initialize Sparkle: %@", exception);
@@ -30,8 +37,21 @@
 }
 
 - (void)checkForUpdatesManually {
-    // This method can be called when user clicks "Check for Updates" menu item
-    [self.updaterController checkForUpdates:nil];
+    NSLog(@"LaunchPad: Manual update check triggered!");
+
+    // Check if the updater is ready
+    SPUUpdater *updater = self.updaterController.updater;
+    NSLog(@"Updater: %@", updater);
+    NSLog(@"Can check for updates: %@", updater.canCheckForUpdates ? @"YES" : @"NO");
+
+    if (!updater.canCheckForUpdates) {
+        NSLog(@"WARNING: Updater says it cannot check for updates!");
+        NSLog(@"automaticallyChecksForUpdates: %@", updater.automaticallyChecksForUpdates ? @"YES" : @"NO");
+        NSLog(@"updateInProgress: %@", updater.sessionInProgress ? @"YES" : @"NO");
+    }
+
+    // Call it anyway
+    [self.updaterController checkForUpdates:self];
 }
 
 - (void)launchPythonApp {
