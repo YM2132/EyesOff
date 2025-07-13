@@ -12,12 +12,10 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 from core.detector import FaceDetector
 from core.manager import DetectionManagerThread
 from core.webcam import WebcamManager
-from core.update_checker import UpdateManager
 from gui.alert import AlertDialog
 from gui.help.walkthrough import WalkthroughDialog
 from gui.preferences_window import PreferencesWindow
 from gui.webcam_view import WebcamView
-from gui.update_view import UpdateView
 from gui.help.walkthrough import WalkthroughDialog
 from utils.config import ConfigManager
 from utils.platform import get_platform_manager
@@ -43,7 +41,6 @@ class MainWindow(QMainWindow):
         self.webcam_manager = None
         self.face_detector = None
         self.detection_thread = None
-        self.update_manager = None
 
         # Frame processing timer
         self.frame_timer = None
@@ -262,13 +259,6 @@ class MainWindow(QMainWindow):
             self.detection_thread.signals.dismiss_alert.connect(self._on_dismiss_alert)
             # Connect a signal to take a screenshot of screen when we show alert
             self.detection_thread.signals.show_alert.connect(self._capture_webcam_on_alert)
-
-            #Init Update Manager
-            self.update_manager = UpdateManager(self)
-            QTimer.singleShot(3000, self.update_manager.start)
-
-            # Connect update signals
-            self.update_manager.thread.update_available.connect(self._show_update_dialog)
 
             # Create frame processing timer
             self.frame_timer = QTimer(self)
@@ -827,41 +817,3 @@ class MainWindow(QMainWindow):
         """Resize the webcam view to fit the available space."""
         # Remove this method entirely - let the webcam view handle its own sizing dynamically
         pass
-
-    # Update View
-    def _show_update_dialog(self, new_version):
-        """Show update dialog when a new version is available."""
-        current_version = self.config_manager.get("app_version", "1.0.0")
-
-        # Create the update view with version information
-        self.update_view = UpdateView(self.update_manager, self, version_info=new_version)
-
-        # Connect to update signals
-        self.update_view.update_accepted.connect(self._handle_update_accepted)
-        self.update_view.update_declined.connect(self._handle_update_declined)
-
-        # Connect download progress signals
-        self.update_manager.thread.download_progress.connect(self.update_view.update_progress)
-        self.update_manager.thread.download_completed.connect(self.update_view.download_complete)
-
-        # Connect verification signals
-        self.update_manager.thread.verification_started.connect(self.update_view.show_verification_started)
-        self.update_manager.thread.verification_success.connect(self.update_view.show_verification_success)
-        self.update_manager.thread.verification_failed.connect(self.update_view.show_verification_failed)
-
-        # Show the dialog
-        self.update_view.exec_()
-
-    def _handle_update_accepted(self):
-        """Handle when user accepts the update."""
-
-        self.update_manager.thread.start_download.emit()
-
-        print('HANDLING UPDATE ACCEPTED BY USER')
-
-    def _handle_update_declined(self):
-        """Handle when user declines the update."""
-        # Just log to status bar
-        self.statusBar.showMessage("Update declined", 3000)
-        self.update_manager.close_thread()
-        print('HANDLING UPDATE DECLINE- CLOSING THREAD')
