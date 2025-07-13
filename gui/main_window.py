@@ -12,7 +12,6 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 from core.detector import FaceDetector
 from core.manager import DetectionManagerThread
 from core.webcam import WebcamManager
-from core.update_checker import UpdateManager
 from gui.alert import AlertDialog
 from gui.help.walkthrough import WalkthroughDialog
 from gui.preferences_window import PreferencesWindow
@@ -42,7 +41,6 @@ class MainWindow(QMainWindow):
         self.webcam_manager = None
         self.face_detector = None
         self.detection_thread = None
-        self.update_manager = None
 
         # Frame processing timer
         self.frame_timer = None
@@ -272,15 +270,6 @@ class MainWindow(QMainWindow):
             self.detection_thread.signals.dismiss_alert.connect(self._on_dismiss_alert)
             # Connect a signal to take a screenshot of screen when we show alert
             self.detection_thread.signals.show_alert.connect(self._capture_webcam_on_alert)
-
-            #Init Update Manager
-            self.update_manager = UpdateManager(self)
-            QTimer.singleShot(3000, self.update_manager.start)
-
-            # Connect update signals
-            self.update_manager.thread.update_available.connect(self._prompt_update)
-            self.update_manager.thread.download_progress.connect(self._update_download_progress)
-            self.update_manager.thread.download_completed.connect(self._download_completed)
 
             # Create frame processing timer
             self.frame_timer = QTimer(self)
@@ -856,68 +845,3 @@ class MainWindow(QMainWindow):
         """Resize the webcam view to fit the available space."""
         # Remove this method entirely - let the webcam view handle its own sizing dynamically
         pass
-
-    # Update View
-    def _prompt_update(self, new_version):
-        """Show simple update prompt."""
-        current_version = self.config_manager.get("app_version", "1.0.0")
-
-        reply = QMessageBox.question(
-            self,
-            "EyesOff Update",
-            f"EyesOff {new_version} is available (current: {current_version}).\n\nInstall now?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-
-        if reply == QMessageBox.Yes:
-            self.download_progress = QProgressDialog(
-                "Downloading update...",
-                "Cancel",
-                0,
-                100,
-                self
-            )
-            self.download_progress.setWindowTitle("Downloading Update")
-            self.download_progress.setWindowModality(Qt.WindowModal)
-            self.download_progress.setAutoClose(False)
-            self.download_progress.setAutoReset(False)
-            self.download_progress.setMinimumDuration(0)
-            self.download_progress.show()
-
-            self.download_progress.canceled.connect(self._cancel_download)
-            self.update_manager.thread.start_download.emit()
-        else:
-            self.statusBar.showMessage("Update declined", 3000)
-            print("Update declined by user")
-
-    def _update_download_progress(self, progress):
-        """Update the progress dialog."""
-        if hasattr(self, 'download_progress') and self.download_progress:
-            self.download_progress.setValue(progress)
-
-    def _download_completed(self, file_path):
-        """Handle download completion."""
-        if hasattr(self, 'download_progress') and self.download_progress:
-            self.download_progress.close()
-            self.download_progress = None
-
-        QMessageBox.information(
-            self,
-            "Download Complete",
-            "The installer has opened. Please follow the macOS prompts to complete installation.",
-            QMessageBox.Ok
-        )
-
-        self.statusBar.showMessage("Update downloaded - installer opened", 5000)
-
-    def _cancel_download(self):
-        """Handle download cancellation."""
-        if self.update_manager:
-            self.update_manager._shutdown()
-
-        if hasattr(self, 'download_progress') and self.download_progress:
-            self.download_progress.close()
-            self.download_progress = None
-
-        self.statusBar.showMessage("Update cancelled", 3000)
