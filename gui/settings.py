@@ -50,9 +50,6 @@ class ColorButton(QPushButton):
                 min-height: 25px;
             }}
         """)
-        
-        # Add hex code to the button text
-        self.setText(f"#{r:02x}{g:02x}{b:02x}")
     
     def set_color(self, color: Tuple[int, int, int]):
         """
