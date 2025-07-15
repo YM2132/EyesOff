@@ -151,13 +151,12 @@ class SettingsPanel(QWidget):
 
         # Find all widgets and connect their signals
         for widget in self.findChildren(QWidget):
-            widget_type = type(widget)
 
             # Check if this widget type has a known change signal
             for widget_class, signal_name in signal_map.items():
                 if isinstance(widget, widget_class):
                     # Skip buttons that aren't radio buttons
-                    if isinstance(widget, QPushButton) and not isinstance(widget, QRadioButton):
+                    if isinstance(widget, QPushButton) and not isinstance(widget, (QRadioButton, ColorButton)):
                         continue
 
                     # Connect the signal
@@ -281,7 +280,6 @@ class SettingsPanel(QWidget):
 
         # Color selection
         self.alert_color_button = ColorButton()
-        self.alert_color_button.color_changed.connect(self._on_alert_color_changed)
         screen_alert_layout.addRow("Alert Color:", self.alert_color_button)
 
         # Fullscreen mode
@@ -613,17 +611,6 @@ class SettingsPanel(QWidget):
 
         if filename:
             self.path_edit.setText(filename)
-    
-    
-    def _on_alert_color_changed(self, color: Tuple[int, int, int]):
-        """
-        Handle alert color change.
-        
-        Args:
-            color: New color in BGR format
-        """
-        # Nothing needed here as the ColorButton handles the UI update
-        pass
 
     def _on_alert_toggle_clicked(self, checked: bool):
         """Activate alert settings if we toggle the alert on"""
