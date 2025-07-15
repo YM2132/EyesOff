@@ -143,16 +143,6 @@ class PreferencesWindow(QDialog):
 		# Disable Apply button after applying
 		self.apply_button.setEnabled(False)
 
-	def _on_apply_clicked(self):
-		"""Handle Apply button click."""
-		self._apply_settings()
-
-		# Update original settings to current state
-		self.original_settings = self.config_manager.get_all().copy()
-
-		# Disable Apply button after applying
-		self.apply_button.setEnabled(False)
-
 	def _apply_settings(self):
 		"""Apply the current settings."""
 		# Use the settings panel's apply method
