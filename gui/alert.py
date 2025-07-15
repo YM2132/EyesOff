@@ -257,7 +257,10 @@ class AlertDialog(QDialog):
         """Handle dialog show event."""
         super().showEvent(event)
 
-        # If fullscreen mode, resize to cover the entire screen
+        # Apply appropriate geometry based on mode
+        self._update_geometry_for_mode()
+
+        ''' # If fullscreen mode, resize to cover the entire screen
         if self.fullscreen_mode:
             # Get the geometry of the active screen
             desktop = QDesktopWidget()
@@ -271,7 +274,7 @@ class AlertDialog(QDialog):
             self.setWindowState((self.windowState() & ~Qt.WindowMinimized) | Qt.WindowActive)
         else:
             # Position the window based on settings
-            self._position_window()
+            self._position_window()'''
 
         # Apply animations if enabled - make sure we have an opacity effect
         if not hasattr(self, 'opacity_effect') or self.opacity_effect is None:
@@ -473,6 +476,25 @@ class AlertDialog(QDialog):
             
         # Also show a notification for testing
         self._show_native_notification()
+
+    def _update_geometry_for_mode(self):
+        """Update window geometry based on current fullscreen mode."""
+        # Get active screen geometry
+        desktop = QDesktopWidget()
+        screen = desktop.screenNumber(QApplication.activeWindow() or self)
+        screen_geom = desktop.screenGeometry(screen)
+
+        if self.fullscreen_mode:
+            # Cover entire screen
+            self.setGeometry(screen_geom)
+        else:
+            # Use configured size
+            self.resize(*self.alert_size)
+            # Position according to settings
+            self._position_window()
+
+        # Force update
+        self.update()
     
     def update_settings(self,
                        alert_on: Optional[bool] = None,
@@ -579,33 +601,27 @@ class AlertDialog(QDialog):
                     self.update()  # Force a repaint
 
         if alert_size is not None:
+            print(f"DEBUG - {self.fullscreen_mode} self.fullscreen_mode")
             self.alert_size = alert_size
             if not self.fullscreen_mode:  # Only resize if not in fullscreen
                 self.resize(*self.alert_size)
                 self._position_window()
 
+        if fullscreen_mode is not None and fullscreen_mode != self.fullscreen_mode:
+            self.fullscreen_mode = fullscreen_mode
+            print(f"DEBUG: Updating fullscreen mode to {self.fullscreen_mode}")
+
+            # If dialog is visible, update geometry immediately
+            if self.isVisible():
+                self._update_geometry_for_mode()
+
+            # Handle alert position (separate from fullscreen logic)
         if alert_position is not None:
             self.alert_position = alert_position
-            if not self.fullscreen_mode:  # Only reposition if not in fullscreen #TODO: If in fullscreen we should disable the alert_position settings
+            print(f"DEBUG - {alert_position} ALERT POSITION")
+            # Only reposition if not in fullscreen mode
+            if not self.fullscreen_mode and self.isVisible():
                 self._position_window()
-
-                # If fullscreen mode changed, we need to recreate the window with new flags
-                if fullscreen_mode is not None and fullscreen_mode != self.fullscreen_mode:
-                    # Update the state variable FIRST before recreating UI
-                    self.fullscreen_mode = fullscreen_mode
-                    print(f"DEBUG: Updating fullscreen mode to {self.fullscreen_mode}")
-
-                    # Close and reopen to apply the new window flags
-                    if self.isVisible():
-                        visible = True
-                        self.close()
-                        # Recreate UI with new settings
-                        self._init_ui()
-                        if visible:
-                            self.show()
-                    else:
-                        # Just recreate UI with new settings
-                        self._init_ui()
 
         if alert_duration is not None:
             self.alert_duration = alert_duration

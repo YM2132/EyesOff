@@ -15,7 +15,7 @@ from utils.resource_path import resource_path
 class FaceDetectorSignals(QObject):
     """Signals for the face detector."""
     # Signal emitted when detection results are ready
-    detection_ready = pyqtSignal(int, list, np.ndarray)
+    detection_ready = pyqtSignal(int, list, np.ndarray, int)
     # Signal emitted when an error occurs
     error_occurred = pyqtSignal(str)
 
@@ -69,7 +69,7 @@ class FaceDetector:
         except Exception as e:
             self.signals.error_occurred.emit(f"Error creating detector: {e}")
 
-    def detect(self, frame: np.ndarray) -> Tuple[int, List[Tuple[int, int, int, int]], np.ndarray]:
+    def detect(self, frame: np.ndarray) -> Tuple[int, List[Tuple[int, int, int, int]], np.ndarray, int]:
         """
         Detect faces in the given frame.
         
@@ -81,22 +81,23 @@ class FaceDetector:
                 - Number of faces detected
                 - List of bounding boxes [x, y, width, height]
                 - Annotated frame with visualizations
+                - Number of people looking (0 for non-gaze based methods)
         """
         try:
             if self.detector is None:
                 self._create_detector()
                 
             # Perform detection
-            num_faces, bboxes, annotated_frame = self.detector.detect(frame)
+            num_faces, bboxes, annotated_frame, num_looking = self.detector.detect(frame)
             
             # Emit signal with results
-            self.signals.detection_ready.emit(num_faces, bboxes, annotated_frame)
+            self.signals.detection_ready.emit(num_faces, bboxes, annotated_frame, num_looking)
             
-            return num_faces, bboxes, annotated_frame
+            return num_faces, bboxes, annotated_frame, num_looking
             
         except Exception as e:
             self.signals.error_occurred.emit(f"Detection error: {e}")
-            return 0, [], frame
+            return 0, [], frame, 0
     
     def update_settings(self, settings: Dict[str, Any]) -> bool:
         """

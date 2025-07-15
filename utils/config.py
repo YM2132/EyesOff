@@ -53,10 +53,7 @@ class ConfigManager:
             "face_threshold": 1,
             
             # Camera settings
-            # TODO - Change the default frame width setting
             "camera_id": 0,
-            "frame_width": 640,
-            "frame_height": 480,
             
             # Alert settings
             "alert_on": False,  # alert is deactivated by default
@@ -93,6 +90,10 @@ class ConfigManager:
 
             # App version
             "app_version": "1.1.0",
+            
+            # First run and help settings
+            "first_run": True,
+            "walkthrough_completed": False,
         }
     
     def _load_config(self):
