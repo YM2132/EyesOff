@@ -41,14 +41,14 @@ class TrialExpiredDialog(QDialog):
 		# Message
 		message_label = QLabel(
 			"Thank you for trying EyesOff! Your 14-day trial has ended.\n"
-			"Please purchase a license to continue using the app."
+			"Please purchase the Pro version to continue using the app."
 		)
 		message_label.setWordWrap(True)
 		message_label.setAlignment(Qt.AlignCenter)
 		layout.addWidget(message_label)
 
 		# Purchase button
-		purchase_button = QPushButton("Purchase License")
+		purchase_button = QPushButton("Purchase EyesOff Pro")
 		purchase_button.setStyleSheet("""
             QPushButton {
                 background-color: #007AFF;
@@ -72,31 +72,6 @@ class TrialExpiredDialog(QDialog):
 		separator.setStyleSheet("background-color: #E0E0E0;")
 		layout.addWidget(separator)
 
-		# Activation section
-		activation_label = QLabel("Already have a license?")
-		activation_label.setAlignment(Qt.AlignCenter)
-		layout.addWidget(activation_label)
-
-		# Email input
-		email_layout = QHBoxLayout()
-		email_label = QLabel("Email:")
-		email_label.setFixedWidth(60)
-		self.email_input = QLineEdit()
-		self.email_input.setPlaceholderText("your@email.com")
-		email_layout.addWidget(email_label)
-		email_layout.addWidget(self.email_input)
-		layout.addLayout(email_layout)
-
-		# License key input
-		key_layout = QHBoxLayout()
-		key_label = QLabel("Key:")
-		key_label.setFixedWidth(60)
-		self.key_input = QLineEdit()
-		self.key_input.setPlaceholderText("XXXX-XXXX-XXXX-XXXX")
-		key_layout.addWidget(key_label)
-		key_layout.addWidget(self.key_input)
-		layout.addLayout(key_layout)
-
 		# Error message label (hidden by default)
 		self.error_label = QLabel()
 		self.error_label.setStyleSheet("color: red; font-size: 12px;")
@@ -108,54 +83,17 @@ class TrialExpiredDialog(QDialog):
 		button_layout = QHBoxLayout()
 		button_layout.setSpacing(10)
 
-		self.activate_button = QPushButton("Activate")
-		self.activate_button.clicked.connect(self._activate_license)
-		self.activate_button.setDefault(True)
-
 		self.exit_button = QPushButton("Exit")
 		self.exit_button.clicked.connect(self._exit_app)
 
-		button_layout.addWidget(self.activate_button)
 		button_layout.addWidget(self.exit_button)
 		layout.addLayout(button_layout)
 
 		self.setLayout(layout)
 
-		# Connect Enter key to activate
-		self.key_input.returnPressed.connect(self._activate_license)
-		self.email_input.returnPressed.connect(self.key_input.setFocus)
-
 	def _open_purchase_url(self):
 		"""Open the purchase URL in the default browser."""
 		webbrowser.open(PURCHASE_URL)
-
-	def _activate_license(self):
-		"""Attempt to activate the license."""
-		email = self.email_input.text()
-		key = self.key_input.text()
-
-		# Clear any previous error
-		self.error_label.setVisible(False)
-
-		# Try to activate
-		success, message = self.licensing_manager.activate_license(email, key)
-
-		if success:
-			# License activated successfully
-			QMessageBox.information(self, "Success", message)
-			self.accept()  # Close dialog with success
-		else:
-			# Show error message
-			self.error_label.setText(message)
-			self.error_label.setVisible(True)
-
-			# Focus on appropriate field
-			if "email" in message.lower():
-				self.email_input.setFocus()
-				self.email_input.selectAll()
-			else:
-				self.key_input.setFocus()
-				self.key_input.selectAll()
 
 	def _exit_app(self):
 		"""Exit the application."""
