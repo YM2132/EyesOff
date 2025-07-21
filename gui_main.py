@@ -5,9 +5,11 @@ import sys
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QDialog
 
 from gui.main_window import MainWindow
+from gui.trial_expired_view import TrialExpiredDialog
+from utils.licensing.manager import LicensingManager
 
 
 def parse_arguments():
@@ -44,6 +46,17 @@ def main():
     
     # Disable the ? button in dialogs on Windows
     app.setAttribute(Qt.AA_DisableWindowContextHelpButton)
+    
+    # Check license status before creating main window
+    licensing_manager = LicensingManager()
+    license_status = licensing_manager.check_status()
+    
+    if license_status == "EXPIRED":
+        # Show trial expired dialog
+        dialog = TrialExpiredDialog()
+        if dialog.exec_() != QDialog.Accepted:
+            # User clicked Exit or failed to activate
+            sys.exit(0)
     
     # Create the main window
     window = MainWindow()
