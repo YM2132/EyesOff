@@ -1,7 +1,6 @@
 from PyQt5.QtCore import Qt, pyqtSignal, QSettings
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import QDialog, QVBoxLayout, QDialogButtonBox, QShortcut, QHBoxLayout, QPushButton
-
 from gui.settings import SettingsPanel
 from utils.config import ConfigManager
 
