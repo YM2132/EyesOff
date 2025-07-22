@@ -56,7 +56,7 @@ class LicensingManager:
 			Tuple[bool, str]: (success, message)
 		"""
 		# Basic input validation
-		email = email.strip()
+		email = email.strip().lower()
 		key = key.strip()
 		
 		if not email:

@@ -11,9 +11,10 @@ class LicenseVerifier:
     # This is the public key that corresponds to the private key used to generate licenses
     # Generate this using generate_key_pair.py and replace this test key with your actual public key
     PUBLIC_KEY_PEM = """-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAGqvUK0VaWqyZ7JfSJbqsuMbHHwzVPqPdxHa7rrT7d0o=
------END PUBLIC KEY-----"""
-    
+MCowBQYDK2VwAyEAaftLOOT/fpPk8+gp0jnVS+Ayo4V2IEl6kidSpv/viMg=
+-----END PUBLIC KEY-----
+"""
+
     def __init__(self):
         """Initialize with the embedded public key."""
         self.public_key = serialization.load_pem_public_key(
