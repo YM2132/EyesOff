@@ -42,3 +42,28 @@ class LicenseStorage:
             "version": "1.0"
         }
         return self.save_trial_data(trial_data)
+    
+    def get_license_data(self) -> Optional[Dict]:
+        """Load license data from storage."""
+        try:
+            if os.path.exists(self.license_file):
+                with open(self.license_file, 'r') as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return None
+    
+    def save_license_data(self, email: str, key: str) -> bool:
+        """Save license data to storage."""
+        try:
+            license_data = {
+                "email": email.strip().lower(),
+                "key": key,
+                "activated_date": datetime.now().isoformat(),
+                "version": "1.0"
+            }
+            with open(self.license_file, 'w') as f:
+                json.dump(license_data, f)
+            return True
+        except Exception:
+            return False
