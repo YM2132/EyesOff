@@ -15,7 +15,7 @@ class TrialExpiredDialog(QDialog):
 		self.licensing_manager = LicensingManager()
 		self.setWindowTitle("Trial Expired - EyesOff")
 		self.setModal(True)
-		self.setFixedSize(450, 350)
+		self.setFixedSize(450, 500)
 
 		# Make dialog uncloseable
 		self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
@@ -72,6 +72,61 @@ class TrialExpiredDialog(QDialog):
 		separator.setStyleSheet("background-color: #E0E0E0;")
 		layout.addWidget(separator)
 
+		# License activation section
+		activation_label = QLabel("Already have a license?")
+		activation_label.setAlignment(Qt.AlignCenter)
+		layout.addWidget(activation_label)
+		
+		# Email input
+		self.email_input = QLineEdit()
+		self.email_input.setPlaceholderText("Enter your email address")
+		self.email_input.setStyleSheet("""
+			QLineEdit {
+				padding: 8px;
+				border: 1px solid #E0E0E0;
+				border-radius: 4px;
+				font-size: 14px;
+			}
+			QLineEdit:focus {
+				border-color: #007AFF;
+			}
+		""")
+		layout.addWidget(self.email_input)
+		
+		# License key input
+		self.key_input = QLineEdit()
+		self.key_input.setPlaceholderText("Enter your license key")
+		self.key_input.setStyleSheet("""
+			QLineEdit {
+				padding: 8px;
+				border: 1px solid #E0E0E0;
+				border-radius: 4px;
+				font-size: 14px;
+			}
+			QLineEdit:focus {
+				border-color: #007AFF;
+			}
+		""")
+		layout.addWidget(self.key_input)
+		
+		# Activate button
+		self.activate_button = QPushButton("Activate License")
+		self.activate_button.setStyleSheet("""
+			QPushButton {
+				background-color: #28A745;
+				color: white;
+				border: none;
+				padding: 8px 16px;
+				border-radius: 4px;
+				font-size: 14px;
+			}
+			QPushButton:hover {
+				background-color: #218838;
+			}
+		""")
+		self.activate_button.clicked.connect(self._activate_license)
+		layout.addWidget(self.activate_button)
+
 		# Error message label (hidden by default)
 		self.error_label = QLabel()
 		self.error_label.setStyleSheet("color: red; font-size: 12px;")
@@ -90,6 +145,26 @@ class TrialExpiredDialog(QDialog):
 		layout.addLayout(button_layout)
 
 		self.setLayout(layout)
+
+	def _activate_license(self):
+		"""Attempt to activate the license with the provided email and key."""
+		email = self.email_input.text()
+		key = self.key_input.text()
+		
+		# Clear any previous error
+		self.error_label.setVisible(False)
+		
+		# Attempt to activate
+		success, message = self.licensing_manager.activate_license(email, key)
+		
+		if success:
+			# License activated successfully
+			QMessageBox.information(self, "Success", message)
+			self.accept()  # Close dialog with success
+		else:
+			# Show error message
+			self.error_label.setText(message)
+			self.error_label.setVisible(True)
 
 	def _open_purchase_url(self):
 		"""Open the purchase URL in the default browser."""

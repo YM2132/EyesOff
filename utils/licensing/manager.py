@@ -2,11 +2,13 @@ from datetime import datetime, timedelta
 from typing import Tuple
 from utils.constants import TRIAL_DAYS, TEST_LICENSE_KEY
 from .storage import LicenseStorage
+from .crypto import LicenseVerifier
 
 
 class LicensingManager:
 	def __init__(self):
 		self.storage = LicenseStorage()
+		self.verifier = LicenseVerifier()
 	
 	def check_status(self) -> str:
 		"""
@@ -17,6 +19,7 @@ class LicensingManager:
 		"""
 		# First check if licensed
 		license_data = self.storage.get_license_data()
+		print(f"LICENSE: {license_data}")
 		if license_data and license_data.get("key"):
 			return "LICENSED"
 		
@@ -43,16 +46,16 @@ class LicensingManager:
 	
 	def activate_license(self, email: str, key: str) -> Tuple[bool, str]:
 		"""
-		Activate a license with email and key.
+		Activate a license with email and key using ED25519 verification.
 		
 		Args:
 			email: Customer email
-			key: License key
+			key: License key (base64 signature or TEST)
 			
 		Returns:
 			Tuple[bool, str]: (success, message)
 		"""
-		# Simple validation for now
+		# Basic input validation
 		email = email.strip()
 		key = key.strip()
 		
@@ -62,8 +65,8 @@ class LicensingManager:
 		if not key:
 			return False, "Please enter your license key"
 		
-		# For now, just check against test key
-		if key == TEST_LICENSE_KEY:
+		# Verify the license using ED25519
+		if self.verifier.verify_license(email, key):
 			# Save license data
 			if self.storage.save_license_data(email, key):
 				return True, "License activated successfully!"
