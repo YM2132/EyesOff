@@ -26,6 +26,15 @@
 		    name:@"app.eyesoff.checkForUpdatesManually"
 		    object:nil
 		    suspensionBehavior:NSNotificationSuspensionBehaviorDeliverImmediately];
+
+		// Listen for auto-update setting changes
+	    [[NSDistributedNotificationCenter defaultCenter]
+	        addObserver:self
+	        selector:@selector(setAutomaticUpdates:)
+	        name:@"app.eyesoff.setAutomaticUpdates"
+	        object:nil
+	        suspensionBehavior:NSNotificationSuspensionBehaviorDeliverImmediately];
+
 		NSLog(@"LaunchPad: Listening for updates notification");
 
     } @catch (NSException *exception) {
@@ -52,6 +61,34 @@
 
     // Call it anyway
     [self.updaterController checkForUpdates:self];
+}
+
+// Handler to set automatic updates
+- (void)setAutomaticUpdates:(NSNotification *)notification {
+    NSDictionary *userInfo = notification.userInfo;
+    BOOL enabled = [[userInfo objectForKey:@"enabled"] boolValue];
+
+    NSLog(@"LaunchPad: Setting automatic updates to: %@", enabled ? @"YES" : @"NO");
+
+    SPUUpdater *updater = self.updaterController.updater;
+    [updater setAutomaticallyChecksForUpdates:enabled];
+
+    // Report back the new state
+    [self reportAutomaticUpdatesState];
+}
+
+// Handler to report current state
+- (void)reportAutomaticUpdatesState {
+    SPUUpdater *updater = self.updaterController.updater;
+    BOOL autoChecks = updater.automaticallyChecksForUpdates;
+
+    NSLog(@"LaunchPad: Reporting automatic updates state: %@", autoChecks ? @"YES" : @"NO");
+
+    [[NSDistributedNotificationCenter defaultCenter]
+        postNotificationName:@"app.eyesoff.automaticUpdatesState"
+        object:nil
+        userInfo:@{@"enabled": @(autoChecks)}
+        deliverImmediately:YES];
 }
 
 - (void)launchPythonApp {

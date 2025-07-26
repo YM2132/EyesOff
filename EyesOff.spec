@@ -79,7 +79,6 @@ app = BUNDLE(
         # 'SUFeedURL': 'https://ym2132.github.io/EyesOff/appcast.json',
         'SUFeedURL': 'http://localhost:3000/appcast.xml',  # TODO: USE LOCAL FOR DEVELOPMENT
         'SUPublicEDKey': '5S/9ARAy5pYEX4IoN3R4Mm9iJ2F8Yk6G2BEDTQ8IHik=',
-        'SUEnableAutomaticChecks': True,
         'SUScheduledCheckInterval': 86400,  # Check daily (in seconds)
         'SUAutomaticallyUpdate': False,  # Prompt user before updating
         'SUEnableSystemProfiling': False,  # Don't send system info
