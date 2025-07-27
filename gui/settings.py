@@ -576,6 +576,9 @@ class SettingsPanel(QWidget):
             # Add setting for getting the snapshot path
             self.path_edit.setText(self.config_manager.get("snapshot_path", ""))
 
+            # Advanced tab
+            self.auto_updates_check = self.config_manager.get("auto_updates_check", False)
+
         finally:
             self._loading_settings = False
 
@@ -761,6 +764,7 @@ class SettingsPanel(QWidget):
 
         gaze_threshold_value = self._slider_to_threshold(self.alert_sensitivity_slider.value())
 
+        # TODO: reorder these based on new tab setup
         # Detection tab
         settings["detector_type"] = self.MODEL_TYPE_MAPPING.get(self.model_type_combo.currentText(), "yunet")
         settings["model_path"] = self.model_path_combo.currentText()
@@ -799,6 +803,9 @@ class SettingsPanel(QWidget):
 
         # App tab
         settings["snapshot_path"] = self.path_edit.text()
+
+        # Advanced tab
+        settings["auto_updates_check"] = self.auto_updates_check.isChecked()
 
         return settings
 
