@@ -164,15 +164,21 @@ class MacOSAppLauncher(PlatformAppLauncher):
         try:
             # Method 1: Try AppleScript
             script = f'''
-            tell application "{app_name}"
-                activate
-            end tell
-            '''
+                tell application "System Events"
+                    tell process "Dock"
+                        set theIcon to UI element "{app_name}" of list 1
+                        click theIcon               -- first click = activate
+                        delay 0.05                  -- short pause
+                        click theIcon               -- second click = reopen/raise
+                    end tell
+                end tell
+                '''
+
             result = subprocess.run(
                 ['osascript', '-e', script],
                 capture_output=True,
                 text=True,
-                timeout=2
+                timeout=3
             )
             if result.returncode == 0:
                 return True
