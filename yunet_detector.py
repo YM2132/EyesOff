@@ -40,7 +40,7 @@ class YuNetDetector:
 			targetId=target_id,
 		)
 
-	def detect(self, frame: np.ndarray) -> Tuple[int, List[Tuple[int, int, int, int]], np.ndarray]:
+	def detect(self, frame: np.ndarray) -> Tuple[int, List[Tuple[int, int, int, int]], np.ndarray, int]:
 		"""
 		Detect faces in the given frame.
 
@@ -89,7 +89,7 @@ class YuNetDetector:
 		# Create visualized frame
 		annotated_frame = self._visualize(frame, detection_result)
 
-		return len(bboxes), bboxes, annotated_frame
+		return len(bboxes), bboxes, annotated_frame, len(bboxes)
 
 	def _prepare_visualization_data(self, detections, frame, inverse_scale):
 		"""
