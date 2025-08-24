@@ -7,7 +7,6 @@ from PyQt5.QtCore import QObject, pyqtSignal
 # Import the existing detector implementations
 # from mediapipe_detector import MediapipeDetector
 from yunet_detector import YuNetDetector
-from yunet_and_eye_contact_detector import GazeDetector
 
 from utils.resource_path import resource_path
 
@@ -53,17 +52,6 @@ class FaceDetector:
         try:
             if self.detector_type.lower() == 'yunet':
                 self.detector = YuNetDetector(self.model_path, self.confidence_threshold)
-            elif self.detector_type.lower() == 'gaze':
-                # The GazeDetector needs both a face model and a gaze model
-                yunet_model_path = self.model_path  # This is the face model path
-                gaze_model_path = resource_path('models/gaze_int8_fc.onnx')  # TODO how to bring this into config settings? We dont want to load the model directly here it should be handled by config and user dropdown
-
-                self.detector = GazeDetector(
-                    yunet_model_path=yunet_model_path,
-                    gaze_model_path=gaze_model_path,
-                    confidence_threshold=self.confidence_threshold,
-                    gaze_threshold=self.gaze_threshold
-                )
             else:
                 raise ValueError(f"Unsupported detector type: {self.detector_type}")
         except Exception as e:

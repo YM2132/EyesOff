@@ -102,7 +102,7 @@ class SettingsPanel(QWidget):
         # Define mapping between user-friendly names and internal model types
         self.MODEL_TYPE_MAPPING = {
             "Face": "yunet",
-            "Gaze": "gaze"
+            #"Gaze": "gaze"  # TODO: add this back in after i deploy my custom gaze model
         }
 
         # Reverse mapping (for loading settings)
