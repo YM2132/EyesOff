@@ -7,7 +7,6 @@ from PyQt5.QtCore import QObject, pyqtSignal
 # Import the existing detector implementations
 # from mediapipe_detector import MediapipeDetector
 from yunet_detector import YuNetDetector
-from yunet_and_eye_contact_detector import GazeDetector
 
 from utils.resource_path import resource_path
 
