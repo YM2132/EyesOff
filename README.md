@@ -4,6 +4,12 @@ EyesOff is a privacy protection application that uses your webcam to monitor for
 
 ![EyesOff Screenshot](https://github.com/user-attachments/assets/7e45274e-b5c1-44a4-9908-89d10b0100a0)
 
+<b>24/08/2025 Dev UPDATE:</b>
+  - I have removed the prior eye-contact model due to its noncommercial research-only license
+  - I am training a new model on my own dataset and updating the UI. **EyesOff will still be useable, but currently it will only detect faces not screen contact**
+  - EyesOff will have a free build and are exploring a pre-packaged commercial edition edition, with support & automated updates etc
+  - **EyesOff still works**, albeit with reduced functionality - new and improved models are on the way!
+
 ## Features
 
 - **Privacy Protection**: Alerts when unauthorized viewers are detected looking at your screen
