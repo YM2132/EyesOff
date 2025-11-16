@@ -7,7 +7,7 @@ from PyQt5.QtCore import Qt, QTimer, QSettings, pyqtSlot
 from PyQt5.QtGui import QIcon, QCloseEvent, QKeySequence
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 							 QSplitter, QAction, QMenu, QStatusBar, QMessageBox,
-							 QSystemTrayIcon, QStyle, QApplication)
+							 QSystemTrayIcon, QStyle, QApplication, QProgressDialog)
 
 from core.detector import FaceDetector
 from core.manager import DetectionManagerThread
@@ -137,6 +137,7 @@ class MainWindow(QMainWindow):
 
         # Settings... action TODO - currently its called Preferences... i want to change it to Settings... but PyQT seems to rename it preferences on its own
         settings_action = QAction("Settings...", self)
+        settings_action.setMenuRole(QAction.PreferencesRole)
         settings_action.setShortcut(QKeySequence.Preferences)
         settings_action.triggered.connect(self._show_settings)
 
@@ -152,10 +153,20 @@ class MainWindow(QMainWindow):
 
         help_menu.addSeparator()
 
+        # Some settings are automatically to the "EyesOff menu" - currently "settings", "about", "check for updates" and "quit" are added there
+        # for cross-platform support I leave them in the menu bare they would be on another platform
+
         # About action
         about_action = QAction("About", self)
+        about_action.setMenuRole(QAction.AboutRole)
         about_action.triggered.connect(self._show_about)
         help_menu.addAction(about_action)
+
+        # Check for updates action
+        check_updates_actions = QAction("Check for Updates...", self)
+        check_updates_actions.setMenuRole(QAction.ApplicationSpecificRole)
+        check_updates_actions.triggered.connect(self._check_for_update)
+        help_menu.addAction(check_updates_actions)  # Add it to help menu but macOS should move it manually
 
     def _create_tray_icon(self):
         """Create system tray icon."""
@@ -539,6 +550,23 @@ class MainWindow(QMainWindow):
             "for unauthorized viewers and displays an alert when someone "
             "else is looking at your screen."
         )
+
+    def _check_for_update(self):
+        '''Trigger Sparkle update check via distributed notification'''
+        try:
+            print('Checking for update...')
+            self.statusBar.showMessage("Checking for updates...", 5000)
+
+            import objc
+            from Foundation import NSDistributedNotificationCenter, NSLog
+
+            NSLog("LaunchPad: Manual update check triggered!")
+
+            center = NSDistributedNotificationCenter.defaultCenter()
+            center.postNotificationName_object_("app.eyesoff.checkForUpdatesManually", None)
+
+        except ImportError:
+            QMessageBox.warning(self, "Update Check", "Update check is only available on macOS.")
 
     def _show_walkthrough(self):
         """Show the interactive walkthrough."""

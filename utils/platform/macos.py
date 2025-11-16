@@ -20,7 +20,9 @@ from .base import (
 try:
     import objc
     from AppKit import NSApp, NSRunningApplication, NSWorkspace, NSURL, NSApplicationActivateAllWindows
-    from Foundation import NSFileManager, NSSearchPathForDirectoriesInDomains, NSApplicationSupportDirectory, NSUserDomainMask
+    from Foundation import (NSFileManager, NSSearchPathForDirectoriesInDomains,
+                            NSApplicationSupportDirectory, NSUserDomainMask, NSLog,
+                            )
     MACOS_APIS_AVAILABLE = True
 except ImportError:
     MACOS_APIS_AVAILABLE = False
@@ -33,7 +35,7 @@ class MacOSNotificationManager(PlatformNotificationManager):
         self._permission_requested = False
         self._sound_path = None
     
-    def show_notification(self, title: str, subtitle: str = "", body: str = "", 
+    def show_notification(self, title: str, subtitle: str = "", body: str = "",
                          sound: Optional[str] = None) -> None:
         """Show a native macOS notification using osascript."""
         if not self.notification_available():
@@ -43,52 +45,44 @@ class MacOSNotificationManager(PlatformNotificationManager):
         if not self._is_running_from_app_bundle():
             print(f"[Platform] Skipping notification (not running from app bundle): {title} - {body}")
             return
-            
-        # Build AppleScript command
-        script_parts = [f'display notification "{body}"']
-        if title:
-            script_parts.append(f'with title "{title}"')
-        if subtitle:
-            script_parts.append(f'subtitle "{subtitle}"')
-        if sound or self._sound_path:
-            sound_name = sound or self._sound_path
-            script_parts.append(f'sound name "{sound_name}"')
-        
-        script = " ".join(script_parts)
-        
-        try:
-            subprocess.run(
-                ["osascript", "-e", script],
-                check=True,
-                capture_output=True,
-                timeout=2
-            )
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-            pass
-    
+
+        # Try native notification first
+        if MACOS_APIS_AVAILABLE:
+            try:
+                from Foundation import NSUserNotification, NSUserNotificationCenter
+
+                # Create notification
+                notification = NSUserNotification.alloc().init()
+                notification.setTitle_(title)
+                if subtitle:
+                    notification.setSubtitle_(subtitle)
+                notification.setInformativeText_(body)
+
+                # Set sound
+                if sound:
+                    notification.setSoundName_(sound)
+                else:
+                    notification.setSoundName_(None)  # Silent
+
+                # Deliver via notification center
+                center = NSUserNotificationCenter.defaultUserNotificationCenter()
+                center.deliverNotification_(notification)
+
+                NSLog(f"PYQT: Delivered native notification: {title}")
+                return
+            except Exception as e:
+                NSLog(f"PYQT: Failed to show native notification: {e}")
+
+            # Don't fall back to osascript - it shows alerts!
+            print(f"[Platform] Native notifications not available")
+
     def request_notification_permission(self) -> None:
         """Request notification permissions on macOS."""
-        # On macOS, we only request permissions when running as a proper app bundle
-        # Check if we're running from a .app bundle
         if not self._is_running_from_app_bundle():
-            # Don't request permissions when running from Python/terminal
             return
-            
-        if self._permission_requested:
-            return
-            
-        try:
-            # Show a dummy notification to trigger permission request
-            script = 'display notification "EyesOff needs permission to show alerts" with title "EyesOff"'
-            subprocess.run(
-                ["osascript", "-e", script],
-                check=False,
-                capture_output=True,
-                timeout=2
-            )
-            self._permission_requested = True
-        except:
-            pass
+
+        # macOS will handle permissions when we try to show a native notification
+        self._permission_requested = True
     
     def notification_available(self) -> bool:
         """Check if notifications are available on macOS."""

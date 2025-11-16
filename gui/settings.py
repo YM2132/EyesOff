@@ -6,7 +6,7 @@ from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
                              QLabel, QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox,
                              QPushButton, QSlider, QLineEdit, QFileDialog, QGroupBox,
-                             QFormLayout, QColorDialog, QGridLayout, QRadioButton)
+                             QFormLayout, QColorDialog, QGridLayout, QRadioButton, QMessageBox)
 
 from core.detector import FaceDetector
 from core.webcam import WebcamManager
@@ -477,10 +477,22 @@ class SettingsPanel(QWidget):
 
         threshold_group.setLayout(threshold_layout)
 
+        # Privacy group
+        privacy_group = QGroupBox("Privacy")
+        privacy_layout = QFormLayout()
+
+        # Disable automatic update checks
+        self.auto_updates_check = QCheckBox()
+        self.auto_updates_check.stateChanged.connect(self._on_auto_update_clicked)
+        privacy_layout.addRow("Automatically Check for Updates:", self.auto_updates_check)
+        self._get_automatic_update_status()
+
+        privacy_group.setLayout(privacy_layout)
 
         # Add all groups to tab layout
         layout.addWidget(advanced_detection_group)
         layout.addWidget(threshold_group)
+        layout.addWidget(privacy_group)
         layout.addStretch(1)
 
         tab.setLayout(layout)
@@ -563,6 +575,9 @@ class SettingsPanel(QWidget):
 
             # Add setting for getting the snapshot path
             self.path_edit.setText(self.config_manager.get("snapshot_path", ""))
+
+            # Advanced tab
+            self.auto_updates_check = self.config_manager.get("auto_updates_check", False)
 
         finally:
             self._loading_settings = False
@@ -684,6 +699,10 @@ class SettingsPanel(QWidget):
                         if response == QMessageBox.Yes:
                             self.app_path_edit.setText(filename)
 
+    def _on_auto_update_clicked(self, checked: bool):
+        """Handle auto update button click."""
+        self._set_automatic_updates(checked)
+
     def _slider_to_threshold(self, slider_value):
         """Convert slider value (0-100) to threshold (0.0-1.0)"""
         return slider_value / 100.0
@@ -697,12 +716,55 @@ class SettingsPanel(QWidget):
 
         return face_threshold
 
+    def _get_automatic_update_status(self):
+        '''Read current update status from app.eyesoff defaults file'''
+        try:
+            print('Getting automatic update status...')
+
+            import objc
+            from Foundation import NSLog, NSUserDefaults
+
+            # First, get the current state from user defaults
+            defaults = NSUserDefaults.standardUserDefaults()
+            auto_checks = defaults.boolForKey_("SUEnableAutomaticChecks")
+
+            # Update the checkbox immediately with current value
+            self.auto_updates_check.setChecked(auto_checks)
+
+            NSLog("PyQt: Automatic updates currently: %@", "YES" if auto_checks else "NO")
+
+        except ImportError:
+            print("Update status check is only available on macOS.")
+
+    def _set_automatic_updates(self, enabled):
+        '''Set automatic update checking via distributed notification'''
+        try:
+            status = "enabled" if enabled else "disabled"
+            print(f'Setting automatic updates to {status}...')
+
+            import objc
+            from Foundation import NSDistributedNotificationCenter, NSLog
+
+            NSLog("PyQt: Setting automatic updates to: %@", "YES" if enabled else "NO")
+
+            center = NSDistributedNotificationCenter.defaultCenter()
+            center.postNotificationName_object_userInfo_deliverImmediately_(
+                "app.eyesoff.setAutomaticUpdates",
+                None,
+                {"enabled": enabled},
+                True
+            )
+
+        except ImportError:
+            QMessageBox.warning(self, "Update Settings", "Update settings are only available on macOS.")
+
     def _get_current_settings(self):
         """Get current settings from UI without saving them."""
         settings = {}
 
         gaze_threshold_value = self._slider_to_threshold(self.alert_sensitivity_slider.value())
 
+        # TODO: reorder these based on new tab setup
         # Detection tab
         settings["detector_type"] = self.MODEL_TYPE_MAPPING.get(self.model_type_combo.currentText(), "yunet")
         settings["model_path"] = self.model_path_combo.currentText()
@@ -741,6 +803,9 @@ class SettingsPanel(QWidget):
 
         # App tab
         settings["snapshot_path"] = self.path_edit.text()
+
+        # Advanced tab
+        settings["auto_updates_check"] = self.auto_updates_check.isChecked()
 
         return settings
 

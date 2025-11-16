@@ -18,6 +18,12 @@ try:
 except ImportError:
     SOUND_SUPPORT = False
 
+# Import NSLog for macos
+try:
+    from Foundation import NSLog
+except ImportError:
+    print("PYQT: Not on macOS")
+
 class AlertDialogSignals(QObject):
     """Signals for alert dialog"""
     # Signal emitted when an alert should be dismissed
@@ -394,17 +400,19 @@ class AlertDialog(QDialog):
         # Play sound if enabled
         if self.alert_sound_enabled and SOUND_SUPPORT and self.sound:
             self.sound.play()
-            
-        # Use system tray notifications (works on most platforms)
-        if self.tray_icon:
-            self.tray_icon.show()
-            self.tray_icon.showMessage(
-                "Privacy Alert", 
-                "Someone is looking at your screen! Check your privacy.",
-                QSystemTrayIcon.Critical, 
-                500  # Show for 0.5 seconds
-            )
 
+        # Use system tray notifications (works on most platforms)
+        #if self.tray_icon:
+        #    NSLog('PYQT: showing with tray icon')
+        #    self.tray_icon.show()
+        #    self.tray_icon.showMessage(
+        #        "Privacy Alert",
+        #        "Someone is looking at your screen! Check your privacy.",
+        #        QSystemTrayIcon.Critical,
+        #        500  # Show for 0.5 seconds
+        #    )
+
+        NSLog(f'PYQT: Is notifications available: {self.platform_manager.notification_manager.notification_available()}')
         # Use platform manager for native notifications
         if self.platform_manager.notification_manager.notification_available():
             try:
