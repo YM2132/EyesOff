@@ -577,7 +577,7 @@ class SettingsPanel(QWidget):
             self.path_edit.setText(self.config_manager.get("snapshot_path", ""))
 
             # Advanced tab
-            self.auto_updates_check = self.config_manager.get("auto_updates_check", False)
+            self.auto_updates_check.setChecked(self.config_manager.get("auto_updates_check", False))
 
         finally:
             self._loading_settings = False
