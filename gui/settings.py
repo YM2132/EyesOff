@@ -102,7 +102,7 @@ class SettingsPanel(QWidget):
         # Define mapping between user-friendly names and internal model types
         self.MODEL_TYPE_MAPPING = {
             "Face": "yunet",
-            #"Gaze": "gaze"  # TODO: add this back in after i deploy my custom gaze model
+            "EyesOff": "eyes_off_model",
         }
 
         # Reverse mapping (for loading settings)
@@ -425,7 +425,7 @@ class SettingsPanel(QWidget):
         self.model_type_combo.addItems(list(self.MODEL_TYPE_MAPPING.keys()))
         self.model_type_combo.currentTextChanged.connect(self._on_model_type_changed)
         self.model_type_combo.setToolTip(
-            '"Face" detects only when faces enter the frame | "Gaze" detects when people are looking at your screen')
+            '"Face" detects only when faces enter the frame | "EyesOff" detects when people are looking at your screen')
         advanced_detection_layout.addRow("Model Type:", self.model_type_combo)
 
         # Model selection combo box
@@ -592,6 +592,7 @@ class SettingsPanel(QWidget):
         """
         # Convert friendly name to internal model type
         model_type = self.MODEL_TYPE_MAPPING.get(user_model_name, "yunet")  # Default to yunet if not found
+        #print(f'\n---MODEL TYPE CHANGED TO: {model_type}---\n')
 
         # Clear and repopulate model path combo
         self.model_path_combo.clear()
