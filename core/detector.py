@@ -7,6 +7,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 # Import the existing detector implementations
 # from mediapipe_detector import MediapipeDetector
 from yunet_detector import YuNetDetector
+from eyesoff_detector import EyesOffDetector
 
 from utils.resource_path import resource_path
 
@@ -26,6 +27,7 @@ class FaceDetector:
     
     def __init__(self, detector_type: str, model_path: str, confidence_threshold: float = 0.5,
                  gaze_model_path: str = None, gaze_threshold: float = 0.4):
+        # TODO: Gaze model path is not provided to the init of FaceDetector
         """
         Initialize the face detector.
         
@@ -52,6 +54,13 @@ class FaceDetector:
         try:
             if self.detector_type.lower() == 'yunet':
                 self.detector = YuNetDetector(self.model_path, self.confidence_threshold)
+            elif self.detector_type.lower() == 'eyes_off_model':
+                # TODO how to bring this into config settings? We dont want to load the model directly here it should be handled by config and user dropdown
+                # TODO: pt2 centralise this to the config
+                gaze_model_path = resource_path('models/best_classification_model_pretrain_finetune_VCD_and_customv2_b.onnx')
+                yunet_model_path = resource_path('models/face_detection_yunet_2023mar.onnx')
+
+                self.detector = EyesOffDetector(gaze_model_path, self.gaze_threshold, yunet_model_path, self.confidence_threshold)
             else:
                 raise ValueError(f"Unsupported detector type: {self.detector_type}")
         except Exception as e:
@@ -136,14 +145,16 @@ class FaceDetector:
         Returns:
             Dict: Dictionary of detector types and their available models
         """
-        # In a real application, this would scan for available models
-        # For now, we'll return only the implemented models
+        # return only the implemented models
         return {
             "yunet": [
                 f"{resource_path('models/face_detection_yunet_2023mar.onnx')}"
             ],
-            "gaze": [
-                f"{resource_path('models/face_detection_yunet_2023mar.onnx')}"
+            # "gaze": [
+            #     f"{resource_path('models/face_detection_yunet_2023mar.onnx')}"
+            # ],
+            "eyes_off_model": [
+                f"{resource_path('models/best_classification_model_pretrain_finetune_VCD_and_customv2_b.onnx')}"
             ]
             # Additional detector types can be added here in the future
             # Example:
