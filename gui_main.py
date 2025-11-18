@@ -8,8 +8,6 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication, QDialog
 
 from gui.main_window import MainWindow
-from gui.trial_expired_view import TrialExpiredDialog
-from utils.licensing.manager import LicensingManager
 
 
 def parse_arguments():
