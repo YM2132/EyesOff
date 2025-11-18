@@ -51,6 +51,7 @@ class ConfigManager:
             "model_path": f"{resource_path('models/face_detection_yunet_2023mar.onnx')}",
             "confidence_threshold": 0.75,
             "face_threshold": 1,
+            #"gaze_model_path": f"{resource_path('models/best_classification_model_pretrain_finetune_VCD_and_customv2_b.onnx')}",
             
             # Camera settings
             "camera_id": 0,
