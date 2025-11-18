@@ -47,23 +47,6 @@ def main():
     # Disable the ? button in dialogs on Windows
     app.setAttribute(Qt.AA_DisableWindowContextHelpButton)
     
-    # Check license status before creating main window
-    licensing_manager = LicensingManager()
-    license_status = licensing_manager.check_status()
-    
-    if license_status == "EXPIRED":
-        # Show trial expired dialog
-        dialog = TrialExpiredDialog()
-        if dialog.exec_() == QDialog.Accepted:
-            # User successfully activated a license, re-check status
-            license_status = licensing_manager.check_status()
-            if license_status != "LICENSED":
-                # Something went wrong, exit
-                sys.exit(0)
-        else:
-            # User clicked Exit or failed to activate
-            sys.exit(0)
-    
     # Create the main window
     window = MainWindow()
     
