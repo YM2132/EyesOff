@@ -252,6 +252,7 @@ class MainWindow(QMainWindow):
                 detector_type=self.config_manager.get("detector_type", "yunet"),
                 model_path=self.config_manager.get("model_path", ""),
                 confidence_threshold=self.config_manager.get("confidence_threshold", 0.5),
+                #gaze_model_path=self.config_manager.get("gaze_model_path", ""), TODO: use gaze model path and pass it to the FaceDetector
                 gaze_threshold=self.config_manager.get("gaze_threshold", 0.3)
             )
 
