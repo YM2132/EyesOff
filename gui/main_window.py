@@ -404,8 +404,14 @@ class MainWindow(QMainWindow):
             # Detect faces
             num_faces, bboxes, _, num_looking = self.face_detector.detect(frame)
 
-            # Update detection manager
-            self.detection_thread.update_face_count(num_faces)
+            # Update detection manager - use num_looking for EyesOff model, num_faces for others
+            detector_type = self.face_detector.detector_type.lower()
+            if detector_type == 'eyes_off_model':
+                # For EyesOff model, use number of people looking
+                self.detection_thread.update_face_count(num_looking)
+            else:
+                # For other models, use total number of faces
+                self.detection_thread.update_face_count(num_faces)
 
         except Exception as e:
             self._handle_error(f"Error processing frame: {e}")
