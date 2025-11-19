@@ -7,7 +7,7 @@ added_files = [
 	#('LaunchPad', 'MacOS'),
 	#('frameworks/Sparkle.framework', 'Frameworks/Sparkle.framework'),
     ('models/face_detection_yunet_2023mar.onnx', 'models'),
-	('models/gaze_int8_fc.onnx', 'models'),
+	('models/best_classification_model_pretrain_finetune_VCD_and_customv2_b.onnx', 'models'),
     ('gui/resources/styles/default.qss', 'gui/resources/styles'),
 ]
 
@@ -62,8 +62,8 @@ app = BUNDLE(
     codesign_identity='Developer ID Application: Yusuf Mohammad (FTBVG7MNYD)',
     info_plist={
         'CFBundleName': 'EyesOff',
-        'CFBundleShortVersionString': '2.0.0',
-        'CFBundleVersion': '2.0.0',
+        'CFBundleShortVersionString': '1.0.0',
+        'CFBundleVersion': '1.0.0',
         'CFBundleIdentifier': 'app.eyesoff',
         'CFBundleIconFile': 'MyIcon',
         'CFBundleExecutable': 'LaunchPad',
@@ -76,8 +76,7 @@ app = BUNDLE(
         'NSNotificationsUsageDescription': 'We need to send you privacy alerts when someone is looking at your screen.',
 
         # Sparkle Update Configuration
-        # 'SUFeedURL': 'https://ym2132.github.io/EyesOff/appcast.json',
-        'SUFeedURL': 'http://localhost:3000/appcast.xml',  # TODO: USE LOCAL FOR DEVELOPMENT
+        'SUFeedURL': 'https://www.eyesoff.app/appcast.xml',
         'SUPublicEDKey': '5S/9ARAy5pYEX4IoN3R4Mm9iJ2F8Yk6G2BEDTQ8IHik=',
         'SUScheduledCheckInterval': 86400,  # Check daily (in seconds)
         'SUAutomaticallyUpdate': False,  # Prompt user before updating
