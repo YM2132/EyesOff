@@ -48,7 +48,7 @@ class ConfigManager:
         return {
             # Detector settings
             "detector_type": "gaze",
-            "model_path": f"{resource_path('models/face_detection_yunet_2023mar.onnx')}",
+            "model_path": f"{resource_path('models/best_classification_model_pretrain_finetune_VCD_and_customv2_b.onnx')}",
             "confidence_threshold": 0.75,
             "face_threshold": 1,
             #"gaze_model_path": f"{resource_path('models/best_classification_model_pretrain_finetune_VCD_and_customv2_b.onnx')}",
